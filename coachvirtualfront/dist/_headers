@@ -1,0 +1,24 @@
+/*
+  # Headers de seguridad para MediaPipe y cámara
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
+  
+  # Política de permisos para acceso a cámara
+  Permissions-Policy: camera=(self), microphone=(self)
+  
+  # Permitir carga de recursos WASM y modelos
+  Cross-Origin-Resource-Policy: cross-origin
+  
+  # Headers de seguridad generales
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Headers específicos para archivos WASM
+/*.wasm
+  Content-Type: application/wasm
+  Cross-Origin-Resource-Policy: cross-origin
+
+# Headers para archivos de modelo
+/*.task
+  Cross-Origin-Resource-Policy: cross-origin

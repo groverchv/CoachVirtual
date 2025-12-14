@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+*.env
+**/.env
+
+# Django stuff:
+*.sqlite3
+*.log
+/static/
+media/
+# Si usas collectstatic:
+staticfiles/
+
+# Django migrations (opcional, si quieres versionarlas, no lo ignores)
+# */migrations/*.py
+# */migrations/*.pyc
+
+# PyCharm / VSCode
+.idea/
+.vscode/
+
+# Mac / Linux / Windows
+.DS_Store
+Thumbs.db
+
+# Coverage / testing
+.coverage
+htmlcov/
+*.cover
+*.py,cover
+.pytest_cache/
+
+# Others
+*.bak
+*.swp
