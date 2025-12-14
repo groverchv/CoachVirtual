@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
+import { useSubscription } from "../context/SubscriptionContext";
 import {
   Home,
   UserCircle2,
@@ -19,14 +20,48 @@ import {
   ChevronDown,
   ChevronRight,
   Flower2,
+  CreditCard,
+  Wallet,
+  History,
+  Shield,
 } from "lucide-react";
 
 const cx = (...c) => c.filter(Boolean).join(" ");
 
+// Badge de plan
+function PlanBadge({ planActual, PLANES }) {
+  const planKey = planActual?.plan_actual || 'gratis';
+  const planInfo = PLANES?.[planKey] || { nombre: 'Gratis' };
+
+  const badgeColors = {
+    gratis: 'bg-gray-600 text-gray-100',
+    basico: 'bg-blue-600 text-blue-100',
+    premium: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white',
+  };
+
+  const icons = {
+    gratis: '🆓',
+    basico: '⭐',
+    premium: '👑',
+  };
+
+  return (
+    <div className={`mx-3 mb-3 px-3 py-2 rounded-lg ${badgeColors[planKey]} flex items-center gap-2`}>
+      <span>{icons[planKey]}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs opacity-75">Tu plan</p>
+        <p className="font-semibold text-sm truncate">{planInfo.nombre}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
   const { isSuper } = useAuth();
+  const { planActual, PLANES } = useSubscription();
   const location = useLocation();
-  const [muscleOpen, setMuscleOpen] = useState(false); // paquete abierto por defecto
+  const [muscleOpen, setMuscleOpen] = useState(false);
+  const [pagosOpen, setPagosOpen] = useState(false);
 
   useEffect(() => {
     if (closeOnNavigate && onClose) onClose();
@@ -39,13 +74,6 @@ export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
       { to: "/perfil", label: "Perfil", icon: UserCircle2 },
       { to: "/planes", label: "Planes Premium", icon: Crown },
       { to: "/mis-alertas", label: "Mis Alertas", icon: Bell },
-
-      // { to: "/chat-ia", label: "Chat IA", icon: Cpu },
-      // { to: "/ia", label: "IA", icon: Brain },
-      // { to: "/pose-test", label: "Entrenar con IA", icon: PlayCircle },
-      // { to: "/ejercicios", label: "Ejercicios 💪", icon: Activity },
-      // { to: "/yoga", label: "Yoga 🧘", icon: Flower2 },
-      // { to: "/seleccionar", label: "Mis Tipos", icon: ListChecks },
     ],
     []
   );
@@ -62,7 +90,37 @@ export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
     [isSuper]
   );
 
-  // 🧩 Paquete de gestión de músculos (1 al 5) -> se desplegará
+  // Paquete Gestionar Pagos (solo admin)
+  const pagosPackage = useMemo(
+    () =>
+      isSuper
+        ? [
+          {
+            to: "/tipos-plan",
+            label: "Tipos de Plan",
+            icon: Crown,
+          },
+          {
+            to: "/planes-admin",
+            label: "Suscripciones",
+            icon: CreditCard,
+          },
+          {
+            to: "/historial-pagos",
+            label: "Historial de Pagos",
+            icon: History,
+          },
+          {
+            to: "/metodos-pago",
+            label: "Métodos de Pago",
+            icon: Wallet,
+          },
+        ]
+        : [],
+    [isSuper]
+  );
+
+  // Paquete de gestión de músculos
   const musclePackage = useMemo(
     () =>
       isSuper
@@ -116,10 +174,15 @@ export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
       aria-label="Barra lateral de navegación"
       style={{ scrollbarGutter: "stable both-edges" }}
     >
-      <header className="px-3 py-3 border-b border-gray-700 flex items-center gap-2 sticky top-0 bg-gray-800">
+      <header className="px-3 py-3 border-b border-gray-700 flex items-center gap-2 sticky top-0 bg-gray-800 z-10">
         <Home className="w-5 h-5" aria-hidden />
         <h2 className="text-lg font-semibold">Menú</h2>
       </header>
+
+      {/* Plan Badge */}
+      <div className="mt-3">
+        <PlanBadge planActual={planActual} PLANES={PLANES} />
+      </div>
 
       <nav className="flex-1 px-2 pr-4 py-3 space-y-5">
         {/* PRINCIPAL */}
@@ -135,7 +198,7 @@ export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
         </ul>
 
 
-        {/* {admin.length > 0 && (
+        {admin.length > 0 && (
           <>
             <SectionTitle>Administración</SectionTitle>
             <ul className="space-y-1">
@@ -147,7 +210,42 @@ export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
                 </li>
               ))}
 
-              {/* {musclePackage.length > 0 && (
+              {/* Paquete Gestionar Pagos */}
+              {pagosPackage.length > 0 && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setPagosOpen((v) => !v)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded hover:bg-gray-700 transition-colors duration-150"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Wallet className="w-5 h-5 shrink-0" aria-hidden />
+                      <span className="text-sm font-semibold">
+                        Gestionar Pagos
+                      </span>
+                    </span>
+                    {pagosOpen ? (
+                      <ChevronDown className="w-4 h-4" aria-hidden />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" aria-hidden />
+                    )}
+                  </button>
+
+                  {pagosOpen && (
+                    <ul className="mt-1 ml-7 space-y-1">
+                      {pagosPackage.map((i) => (
+                        <li key={i.to}>
+                          <NavItem to={i.to} icon={i.icon}>
+                            {i.label}
+                          </NavItem>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              )}
+
+              {musclePackage.length > 0 && (
                 <li>
                   <button
                     type="button"
@@ -179,10 +277,10 @@ export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
                     </ul>
                   )}
                 </li>
-              )} 
+              )}
             </ul>
           </>
-        )} */}
+        )}
 
 
         <SectionTitle>Configuraciones</SectionTitle>

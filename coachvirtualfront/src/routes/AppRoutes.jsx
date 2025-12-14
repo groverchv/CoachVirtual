@@ -69,6 +69,10 @@ import EjerciciosPage from "../pages/Ejercicios/EjerciciosPage";
 import IAPage from "../pages/IAPage/IAPage";
 import ChatIA from "../pages/Chat/ChatIA";
 import Planes from "../pages/Planes/Planes";
+import PlanesAdmin from "../pages/Planes/PlanesAdmin";
+import HistorialPagos from "../pages/Planes/HistorialPagos";
+import MetodosPago from "../pages/Planes/MetodosPago";
+import GestionarTiposPlanes from "../pages/Planes/GestionarTiposPlanes";
 import Pago from "../pages/Planes/Pago";
 
 import AlertNotifier from "../pages/GestionarAlerta/AlertNotifier";
@@ -268,6 +272,10 @@ export default function AppRoutes() {
             <Route path="/musculos" element={<Musculo />} />
             <Route path="/usuarios" element={<Usuario />} />
             <Route path="/alertas" element={<Alerta />} />
+            <Route path="/tipos-plan" element={<GestionarTiposPlanes />} />
+            <Route path="/planes-admin" element={<PlanesAdmin />} />
+            <Route path="/historial-pagos" element={<HistorialPagos />} />
+            <Route path="/metodos-pago" element={<MetodosPago />} />
             <Route path="/banca-de-ejercicios" element={<Ejercicio />} />
             <Route path="/detalles-musculo" element={<Detalle_Musculo />} />
             <Route path="/ejercicios-asignados" element={<Ejercicio_Asignado />} />

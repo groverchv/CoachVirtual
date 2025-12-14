@@ -1,149 +1,295 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useAuth } from '../../auth/useAuth';
+import PlanService from '../../services/PlanService';
+import api from '../../api/api';
+import { Crown, Check, X, Clock, CreditCard } from 'lucide-react';
 
 export default function Planes() {
-  const { planActual, PLANES, subscriptionsEnabled } = useSubscription();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { planActual, refrescarPlan } = useSubscription();
+  const [loading, setLoading] = useState(null);
+  const [loadingPlanes, setLoadingPlanes] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [diasRestantes, setDiasRestantes] = useState(null);
+  const [planes, setPlanes] = useState([]);
 
-  const planCards = [
-    {
-      key: 'gratis',
-      color: 'gray',
-      gradient: 'from-gray-500 to-gray-600',
-      icon: '🆓',
-    },
-    {
-      key: 'basico',
-      color: 'blue',
-      gradient: 'from-blue-500 to-blue-600',
-      icon: '⭐',
-      popular: true,
-    },
-    {
-      key: 'premium',
-      color: 'purple',
-      gradient: 'from-purple-500 to-pink-600',
-      icon: '👑',
-    },
-  ];
+  // Cargar planes desde la API
+  useEffect(() => {
+    const cargarPlanes = async () => {
+      try {
+        setLoadingPlanes(true);
+        const response = await api.get('/suscripciones/tipos-plan/');
+        setPlanes(response.data.planes || []);
+      } catch (err) {
+        console.error('Error cargando planes:', err);
+        // Usar planes por defecto si falla la API
+        setPlanes([
+          { id: 1, clave: 'gratis', nombre: 'Gratis', precio: 0, icono: '🆓', color: 'from-gray-400 to-gray-500', minutos_por_dia: 15, feedback_voz: false, analisis_angulos: false, historial_dias: 0, con_anuncios: true, popular: false },
+          { id: 2, clave: 'basico', nombre: 'Básico', precio: 25, icono: '⭐', color: 'from-blue-500 to-blue-600', minutos_por_dia: 60, feedback_voz: true, analisis_angulos: false, historial_dias: 7, con_anuncios: true, popular: true },
+          { id: 3, clave: 'premium', nombre: 'Premium', precio: 49, icono: '👑', color: 'from-purple-500 to-pink-600', minutos_por_dia: -1, feedback_voz: true, analisis_angulos: true, historial_dias: -1, con_anuncios: false, popular: false },
+        ]);
+      } finally {
+        setLoadingPlanes(false);
+      }
+    };
+    cargarPlanes();
+  }, []);
+
+  // Calcular días restantes del trial o plan
+  useEffect(() => {
+    if (planActual?.fecha_expiracion) {
+      const expiracion = new Date(planActual.fecha_expiracion);
+      const hoy = new Date();
+      const diferencia = Math.ceil((expiracion - hoy) / (1000 * 60 * 60 * 24));
+      setDiasRestantes(diferencia > 0 ? diferencia : 0);
+    }
+  }, [planActual]);
+
+  // Verificar parámetros de retorno de Stripe
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentSuccess = urlParams.get('success') === 'true';
+    const paymentCanceled = urlParams.get('canceled') === 'true';
+    const sessionId = urlParams.get('session_id');
+
+    if (paymentSuccess && sessionId) {
+      verificarPagoStripe(sessionId);
+    } else if (paymentCanceled) {
+      setError('Pago cancelado. No se realizó ningún cargo.');
+    }
+
+    // Limpiar URL
+    if (paymentSuccess || paymentCanceled) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const verificarPagoStripe = async (sessionId) => {
+    try {
+      const response = await PlanService.verificarSesionStripe(sessionId);
+      if (response.plan_activated || response.payment_status === 'paid') {
+        setSuccess('¡Pago realizado con éxito! Tu plan ha sido activado.');
+        await refrescarPlan?.();
+      }
+    } catch (err) {
+      console.error('Error verificando pago:', err);
+    }
+  };
+
+  const handlePagarStripe = async (planClave) => {
+    if (planClave === 'gratis') return;
+
+    // Verificar autenticación primero
+    if (!isAuthenticated) {
+      setError('Debes iniciar sesión para realizar un pago');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+      return;
+    }
+
+    setLoading(planClave);
+    setError(null);
+
+    try {
+      const response = await PlanService.iniciarPagoStripe(planClave);
+      if (response?.url) {
+        window.location.href = response.url;
+      } else {
+        throw new Error('No se pudo obtener la URL de pago');
+      }
+    } catch (err) {
+      console.error('Error iniciando pago:', err);
+      const errorMsg = err.message || 'Error al iniciar el proceso de pago';
+      setError(errorMsg);
+      setLoading(null);
+    }
+  };
+
+  const currentPlanKey = planActual?.plan_actual || 'gratis';
+
+  if (loadingPlanes) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-white mt-4">Cargando planes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-8 sm:py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-8 sm:py-12 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full mb-4">
+            <Crown className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-4">
             Elige tu Plan
           </h1>
-          <p className="text-lg sm:text-xl text-gray-600">
+          <p className="text-lg sm:text-xl text-gray-300">
             Mejora tu entrenamiento con Coach Virtual
           </p>
-          
-          {!subscriptionsEnabled && (
-            <div className="mt-6 bg-yellow-100 border border-yellow-300 rounded-lg p-4 max-w-2xl mx-auto">
-              <p className="text-sm sm:text-base text-yellow-800 font-semibold">
-                ⚠️ Sistema de suscripciones en preparación - Por ahora todo es gratis
+
+          {/* Success message */}
+          {success && (
+            <div className="mt-6 bg-green-500/20 border border-green-400 rounded-xl p-4 max-w-2xl mx-auto backdrop-blur-sm">
+              <p className="text-green-200 font-semibold flex items-center justify-center gap-2">
+                <Check className="w-5 h-5" /> {success}
               </p>
             </div>
           )}
-          
-          {planActual && (
-            <div className="mt-6 bg-white border-2 border-purple-200 rounded-lg p-4 max-w-md mx-auto">
-              <p className="text-sm text-gray-600">Tu plan actual:</p>
-              <p className="text-xl sm:text-2xl font-bold text-purple-600">{planActual.plan_nombre}</p>
+
+          {/* Error message */}
+          {error && (
+            <div className="mt-6 bg-red-500/20 border border-red-400 rounded-xl p-4 max-w-2xl mx-auto backdrop-blur-sm">
+              <p className="text-red-200 font-semibold flex items-center justify-center gap-2">
+                <X className="w-5 h-5" /> {error}
+              </p>
+              <button
+                onClick={() => setError(null)}
+                className="mt-2 text-sm text-red-300 underline hover:text-red-100"
+              >
+                Cerrar
+              </button>
             </div>
           )}
+
+          {/* Current plan badge */}
+          <div className="mt-8 inline-flex flex-col items-center">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
+              <p className="text-sm text-gray-400 mb-2">Tu plan actual:</p>
+              <p className="text-2xl sm:text-3xl font-bold text-white">
+                {planes.find(p => p.clave === currentPlanKey)?.nombre || 'Gratis'}
+              </p>
+              {diasRestantes !== null && diasRestantes > 0 && currentPlanKey !== 'gratis' && (
+                <div className="mt-3 flex items-center justify-center gap-2 text-yellow-400">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm">{diasRestantes} días restantes</span>
+                </div>
+              )}
+              {diasRestantes === 0 && currentPlanKey !== 'gratis' && (
+                <div className="mt-3 flex items-center justify-center gap-2 text-red-400">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm">Plan expirado</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Plan Cards */}
+        {/* Plan Cards - Dynamic from API */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
-          {planCards.map((card) => {
-            const plan = PLANES[card.key];
-            const isCurrentPlan = planActual?.plan_actual === card.key;
+          {planes.map((plan) => {
+            const isCurrentPlan = currentPlanKey === plan.clave;
+            const isLoading = loading === plan.clave;
+            const isGratis = plan.precio === 0;
 
             return (
               <div
-                key={card.key}
-                className={`relative bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all hover:scale-105 ${
-                  card.popular ? 'ring-4 ring-blue-400' : ''
-                }`}
+                key={plan.id}
+                className={`relative bg-white/10 backdrop-blur-lg rounded-3xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl ${plan.popular
+                    ? 'border-yellow-400/50 ring-2 ring-yellow-400/30'
+                    : isCurrentPlan
+                      ? 'border-green-400/50'
+                      : 'border-white/20'
+                  }`}
               >
                 {/* Popular badge */}
-                {card.popular && (
-                  <div className="absolute top-0 right-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-1 rounded-bl-lg text-sm font-bold">
-                    🔥 Popular
+                {plan.popular && (
+                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-2 text-center text-sm font-bold">
+                    🔥 MÁS POPULAR
                   </div>
                 )}
 
                 {/* Current plan badge */}
                 {isCurrentPlan && (
-                  <div className="absolute top-0 left-0 bg-green-500 text-white px-4 py-1 rounded-br-lg text-sm font-bold">
-                    ✓ Tu plan
+                  <div className="absolute top-0 right-0 bg-green-500 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
+                    ✓ Tu Plan
                   </div>
                 )}
 
-                <div className="p-6 sm:p-8">
+                <div className={`p-6 sm:p-8 ${plan.popular ? 'pt-14' : ''}`}>
                   {/* Icon & Title */}
                   <div className="text-center mb-6">
-                    <div className="text-5xl sm:text-6xl mb-3">{card.icon}</div>
-                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-800">{plan.nombre}</h3>
+                    <div className="text-5xl sm:text-6xl mb-3">{plan.icono}</div>
+                    <h3 className="text-2xl sm:text-3xl font-bold text-white">{plan.nombre}</h3>
                     <div className="mt-4">
-                      <span className="text-4xl sm:text-5xl font-extrabold text-gray-900">Bs. {plan.precio}</span>
-                      <span className="text-gray-500">/mes</span>
+                      <span className="text-4xl sm:text-5xl font-extrabold text-white">
+                        {plan.precio === 0 ? 'Gratis' : `Bs. ${plan.precio}`}
+                      </span>
+                      {plan.precio > 0 && (
+                        <span className="text-gray-400">/mes</span>
+                      )}
                     </div>
                   </div>
 
                   {/* Features */}
                   <ul className="space-y-3 mb-8">
-                    <li className="flex items-start">
-                      <span className={`${plan.minutos_por_dia === -1 ? 'text-green-500' : 'text-gray-400'} mr-2`}>
-                        {plan.minutos_por_dia === -1 ? '✓' : '⏱️'}
-                      </span>
-                      <span className="text-sm text-gray-700">
-                        {plan.minutos_por_dia === -1 ? 'Tiempo ilimitado' : `${plan.minutos_por_dia} min/día`}
-                      </span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className={`${plan.feedback_voz ? 'text-green-500' : 'text-red-400'} mr-2`}>
-                        {plan.feedback_voz ? '✓' : '✗'}
-                      </span>
-                      <span className="text-sm text-gray-700">Feedback con voz</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className={`${plan.analisis_angulos ? 'text-green-500' : 'text-red-400'} mr-2`}>
-                        {plan.analisis_angulos ? '✓' : '✗'}
-                      </span>
-                      <span className="text-sm text-gray-700">Análisis de ángulos</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className={`${plan.historial_dias === -1 ? 'text-green-500' : plan.historial_dias > 0 ? 'text-yellow-500' : 'text-red-400'} mr-2`}>
-                        {plan.historial_dias === -1 ? '✓' : plan.historial_dias > 0 ? '⚠' : '✗'}
-                      </span>
-                      <span className="text-sm text-gray-700">
-                        {plan.historial_dias === -1 ? 'Historial ilimitado' : plan.historial_dias > 0 ? `${plan.historial_dias} días de historial` : 'Sin historial'}
-                      </span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className={`${plan.con_anuncios ? 'text-red-400' : 'text-green-500'} mr-2`}>
-                        {plan.con_anuncios ? '✗' : '✓'}
-                      </span>
-                      <span className="text-sm text-gray-700">
-                        {plan.con_anuncios ? 'Con anuncios' : 'Sin anuncios'}
-                      </span>
-                    </li>
+                    <FeatureItem
+                      active={plan.minutos_por_dia === -1}
+                      text={plan.minutos_por_dia === -1 ? 'Tiempo ilimitado' : `${plan.minutos_por_dia} min/día`}
+                    />
+                    <FeatureItem
+                      active={plan.feedback_voz}
+                      text="Feedback con voz"
+                    />
+                    <FeatureItem
+                      active={plan.analisis_angulos}
+                      text="Análisis de ángulos"
+                    />
+                    <FeatureItem
+                      active={plan.historial_dias === -1 || plan.historial_dias > 0}
+                      partial={plan.historial_dias > 0 && plan.historial_dias !== -1}
+                      text={plan.historial_dias === -1 ? 'Historial ilimitado' : plan.historial_dias > 0 ? `${plan.historial_dias} días de historial` : 'Sin historial'}
+                    />
+                    <FeatureItem
+                      active={!plan.con_anuncios}
+                      text={plan.con_anuncios ? 'Con anuncios' : 'Sin anuncios'}
+                    />
                   </ul>
 
                   {/* CTA Button */}
-                  <button
-                    disabled={!subscriptionsEnabled || isCurrentPlan}
-                    className={`w-full py-3 rounded-full font-bold text-white transition-all ${
-                      isCurrentPlan
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : subscriptionsEnabled
-                        ? `bg-gradient-to-r ${card.gradient} hover:shadow-lg hover:scale-105`
-                        : 'bg-gray-400 cursor-not-allowed'
-                    }`}
-                  >
-                    {isCurrentPlan ? 'Plan Actual' : subscriptionsEnabled ? 'Seleccionar Plan' : 'Próximamente'}
-                  </button>
+                  {isGratis ? (
+                    <button
+                      disabled
+                      className="w-full py-4 rounded-xl font-bold text-white bg-gray-600 cursor-not-allowed"
+                    >
+                      {isCurrentPlan ? 'Plan Actual' : 'Plan Base'}
+                    </button>
+                  ) : isCurrentPlan ? (
+                    <button
+                      disabled
+                      className="w-full py-4 rounded-xl font-bold text-white bg-green-600 cursor-not-allowed"
+                    >
+                      ✓ Plan Activo
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handlePagarStripe(plan.clave)}
+                      disabled={isLoading}
+                      className={`w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all bg-gradient-to-r ${plan.color} hover:shadow-lg hover:scale-[1.02] disabled:opacity-70 disabled:cursor-wait`}
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Procesando...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-5 h-5" />
+                          Pagar con Stripe
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -151,11 +297,26 @@ export default function Planes() {
         </div>
 
         {/* Footer info */}
-        <div className="mt-12 sm:mt-16 text-center text-gray-500 text-xs sm:text-sm px-4">
+        <div className="mt-12 sm:mt-16 text-center space-y-2 text-gray-400 text-xs sm:text-sm px-4">
           <p>✨ Todos los planes incluyen acceso a ejercicios de gimnasio y fisioterapia</p>
-          <p className="mt-2">💳 Próximamente: Pagos con QR boliviano, tarjetas y más</p>
+          <p>💳 Pagos seguros procesados por Stripe</p>
+          <p>🔒 Puedes cancelar en cualquier momento</p>
         </div>
       </div>
     </div>
+  );
+}
+
+// Feature item component
+function FeatureItem({ active, partial, text }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className={`mt-0.5 ${active ? (partial ? 'text-yellow-400' : 'text-green-400') : 'text-red-400'}`}>
+        {active ? (partial ? '◐' : '✓') : '✗'}
+      </span>
+      <span className={`text-sm ${active ? 'text-gray-200' : 'text-gray-500'}`}>
+        {text}
+      </span>
+    </li>
   );
 }

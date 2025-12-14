@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from decouple import config
 import os
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -48,11 +49,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Apps de terceros
+    "rest_framework",
+    "corsheaders", # Asegúrate de que esté instalado: pip install django-cors-headers
+    # Mis apps
     "usuarios",
     "poses",
-    "suscripciones",  # Sistema de suscripciones (preparado, no activo)
-    "rest_framework",
-    "corsheaders",
+    "suscripciones",
     "musculos",
     "dispositivo",
 ]
@@ -64,7 +67,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware", # DEBE estar al principio o lo más arriba posible
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -99,16 +102,10 @@ WSGI_APPLICATION = "coachvirtualback.wsgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 """Configuración de base de datos.
-
-Se prioriza el uso de una URL completa (DATABASE_URL) si está definida en el entorno
-para facilitar despliegues (como Railway). Si no existe, se usan variables separadas.
-
-Ejemplo de .env:
-DATABASE_URL=postgresql://postgres:pass@host:port/railway
+Se prioriza el uso de una URL completa (DATABASE_URL) si está definida en el entorno.
 """
 
-from urllib.parse import urlparse
-
+# NOTA: Idealmente, no dejes la URL real hardcodeada aquí si subes esto a GitHub público.
 database_url = config("DATABASE_URL", default="postgresql://postgres:rGuCuRzXLXRjtqTuipAFEPBMVbEhWrej@yamanote.proxy.rlwy.net:41329/railway")
 
 if database_url:
@@ -120,11 +117,11 @@ if database_url:
             "USER": parsed.username,
             "PASSWORD": parsed.password,
             "HOST": parsed.hostname,
-            "PORT": str(parsed.port),
+            "PORT": str(parsed.port) if parsed.port else "5432",
         }
     }
 else:
-    # Fallback a variables individuales (mantiene compatibilidad previa)
+    # Fallback a variables individuales
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -183,28 +180,15 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CORS configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",  # Puerto por defecto de Vite
-    "http://127.0.0.1:5173",
-    "https://coachvirtual.netlify.app",  # Frontend en producción
-    "https://magical-stroopwafel-40b85c.netlify.app",  # Frontend en producción (alternativo)
-]
+# ==========================================
+# CONFIGURACIÓN CORS (SIN RESTRICCIONES)
+# ==========================================
 
-# Permitir cualquier subdominio de ngrok
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.ngrok-free\.app$",
-]
+# Permitir solicitudes desde cualquier origen (Frontend, Postman, Mobile, etc.)
+CORS_ALLOW_ALL_ORIGINS = True
 
+# Permitir envío de cookies/headers de autorización
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://coachvirtual.netlify.app",
-    "https://magical-stroopwafel-40b85c.netlify.app",
-    "https://*.ngrok-free.app",
-]
+# (Opcional) Si en el futuro necesitas restringir CSRF en producción (deploy HTTPS):
+# CSRF_TRUSTED_ORIGINS = ["https://tudominio.com", "https://tudominio.railway.app"]

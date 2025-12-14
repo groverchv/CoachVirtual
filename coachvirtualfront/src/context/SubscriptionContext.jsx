@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '../auth/useAuth';
+import api from '../api/api';
 
 const SubscriptionContext = createContext();
 
@@ -57,28 +58,33 @@ export function SubscriptionProvider({ children }) {
   const [planActual, setPlanActual] = useState(null);
   const [subscriptionsEnabled, setSubscriptionsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (user) {
       cargarPlanActual();
+    } else {
+      setLoading(false);
     }
   }, [user]);
 
   const cargarPlanActual = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/suscripciones/planes/actual/`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-      });
+      setError(null);
+      const response = await api.get('/suscripciones/planes/actual/');
 
-      if (response.ok) {
-        const data = await response.json();
-        setPlanActual(data);
-        setSubscriptionsEnabled(data.subscriptions_enabled);
+      if (response.data) {
+        setPlanActual(response.data);
+        setSubscriptionsEnabled(response.data.subscriptions_enabled || false);
       }
-    } catch (error) {
-      console.error('Error cargando plan:', error);
+    } catch (err) {
+      console.error('Error cargando plan:', err);
+      // Si hay error 401/403, no es un error real, solo significa que el usuario no tiene plan
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        setError('No se pudo cargar el plan actual');
+      }
+      // Por defecto usar plan gratis
+      setPlanActual({ plan: 'gratis', configuracion: PLANES.gratis });
     } finally {
       setLoading(false);
     }
@@ -88,10 +94,10 @@ export function SubscriptionProvider({ children }) {
   const puedeUsar = (feature) => {
     // Si el sistema no está activado, todo es gratis
     if (!subscriptionsEnabled) return true;
-    
+
     if (!planActual) return false;
-    
-    const config = planActual.configuracion;
+
+    const config = planActual.configuracion || PLANES.gratis;
     return config[feature] === true || config[feature] === -1;
   };
 
@@ -101,12 +107,27 @@ export function SubscriptionProvider({ children }) {
     return planActual.configuracion || PLANES.gratis;
   };
 
+  // Obtener nombre del plan actual
+  const getPlanNombre = () => {
+    if (!planActual?.plan) return 'Gratis';
+    return PLANES[planActual.plan]?.nombre || 'Gratis';
+  };
+
+  // Refrescar plan después de una compra
+  const refrescarPlan = async () => {
+    setLoading(true);
+    await cargarPlanActual();
+  };
+
   const value = {
     planActual,
     subscriptionsEnabled,
     loading,
+    error,
     puedeUsar,
     getPlanConfig,
+    getPlanNombre,
+    refrescarPlan,
     PLANES,
   };
 
