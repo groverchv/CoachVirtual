@@ -382,15 +382,15 @@ export default function WizardRutinaIA() {
                                         }`}
                                 >
                                     {paso === 5 ? (
-                                        <>
+                                        <span className="flex items-center gap-2">
                                             <Sparkles className="w-5 h-5" />
-                                            Generar Rutina
-                                        </>
+                                            <span>Generar Rutina</span>
+                                        </span>
                                     ) : (
-                                        <>
-                                            Siguiente
+                                        <span className="flex items-center gap-2">
+                                            <span>Siguiente</span>
                                             <ChevronRight className="w-5 h-5" />
-                                        </>
+                                        </span>
                                     )}
                                 </button>
                             </div>

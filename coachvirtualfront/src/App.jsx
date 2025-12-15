@@ -9,6 +9,7 @@ import { CategoryProvider } from "./context/CategoryContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
 import Dispositivo from "./components/Dispositivo";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import { preloadMediaPipe } from "./services/IA/mediaPipePreloader";
 
 function AppContent({ sidebarOpen, setSidebarOpen }) {
   const location = useLocation();
@@ -64,6 +65,13 @@ export default function App() {
     const handleResize = () => setSidebarOpen(window.innerWidth >= 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // 🚀 Precargar MediaPipe en background al iniciar la app
+  useEffect(() => {
+    preloadMediaPipe().catch(err => {
+      console.warn('Precarga de MediaPipe fallida (se cargará bajo demanda):', err.message);
+    });
   }, []);
 
   return (

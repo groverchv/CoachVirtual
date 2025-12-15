@@ -1,15 +1,15 @@
 /**
  * Servicio de voz mejorado para corrección de ejercicios
- * Incluye cola de mensajes, prioridades y UI feedback
+ * VOZ MASCULINA con actitud de entrenador motivador
  */
 
-// Configuración
+// Configuración - VOZ MASCULINA MOTIVADORA
 const CONFIG = {
     lang: 'es-ES',
-    rate: 1.0,
-    pitch: 1.0,
+    rate: 1.15,        // Más rápido - actitud energética
+    pitch: 0.85,       // Más grave - voz masculina
     volume: 1.0,
-    cooldown: 3000, // ms entre mensajes del mismo tipo
+    cooldown: 2500,    // Respuesta más rápida
     priority: {
         critical: 0,   // Errores de postura peligrosos
         correction: 1, // Correcciones normales
@@ -28,61 +28,61 @@ let lastMessageTime = {};
 let onSpeakingChange = null;
 let voiceInstance = null;
 
-// Mensajes predefinidos por situación
+// Mensajes predefinidos - ESTILO ENTRENADOR MOTIVADOR
 export const VOICE_MESSAGES = {
     // Inicio de ejercicio
     start: {
-        generic: '¡Prepárate! Vamos a comenzar el ejercicio.',
-        squat: 'Pies al ancho de hombros, espalda recta. ¡Vamos!',
-        pushup: 'Posición de plancha, manos debajo de los hombros.',
-        plank: 'Mantén el cuerpo recto como una tabla.',
-        curl: 'Codos pegados al cuerpo, controla el movimiento.',
-        stretch: 'Respira profundo y estira suavemente.',
+        generic: '¡Vamos! ¡A darle con todo!',
+        squat: '¡Posición! Pies firmes, espalda recta. ¡Ahora!',
+        pushup: '¡Al suelo! Posición de plancha, manos bien puestas.',
+        plank: '¡Como una tabla! Cuerpo recto, sin excusas.',
+        curl: '¡Codos pegados! Controla cada repetición.',
+        stretch: 'Respira hondo y estira. ¡Tú puedes!',
     },
 
-    // Correcciones de postura
+    // Correcciones de postura - DIRECTO Y FIRME
     corrections: {
         // Espalda
-        backBent: 'Mantén la espalda recta',
-        backArched: 'No arquees demasiado la espalda',
-        shouldersUneven: 'Nivela los hombros',
+        backBent: '¡Espalda recta! ¡Vamos!',
+        backArched: '¡No arquees la espalda!',
+        shouldersUneven: '¡Hombros nivelados!',
 
         // Caderas
-        hipsTooLow: 'Sube un poco la cadera',
-        hipsTooHigh: 'Baja la cadera',
-        hipsUneven: 'Mantén las caderas niveladas',
+        hipsTooLow: '¡Sube esa cadera!',
+        hipsTooHigh: '¡Baja la cadera!',
+        hipsUneven: '¡Caderas firmes y niveladas!',
 
         // Rodillas
-        kneesPastToes: 'Las rodillas no deben pasar los pies',
-        kneesNotBent: 'Dobla más las rodillas',
-        kneesTooWide: 'Acerca un poco las rodillas',
+        kneesPastToes: '¡Rodillas atrás! No pases los pies.',
+        kneesNotBent: '¡Más flexión de rodillas!',
+        kneesTooWide: '¡Acerca las rodillas!',
 
         // Brazos
-        elbowsFlared: 'Codos más cerca del cuerpo',
-        armsNotStraight: 'Estira los brazos',
-        wristsNotAligned: 'Alinea las muñecas con los hombros',
+        elbowsFlared: '¡Codos al cuerpo!',
+        armsNotStraight: '¡Brazos rectos!',
+        wristsNotAligned: '¡Muñecas alineadas!',
 
         // Cabeza y cuello
-        headForward: 'Lleva la cabeza hacia atrás',
-        headTilted: 'Mantén la cabeza recta',
-        neckStrained: 'Relaja el cuello',
+        headForward: '¡Cabeza atrás!',
+        headTilted: '¡Cabeza recta!',
+        neckStrained: '¡Relaja el cuello!',
 
         // General
-        leaningForward: 'No te inclines hacia adelante',
-        leaningBack: 'No te recuestes',
-        offBalance: 'Mantén el equilibrio',
+        leaningForward: '¡No te inclines!',
+        leaningBack: '¡Mantén la posición!',
+        offBalance: '¡Equilibrio! ¡Estabiliza!',
     },
 
-    // Ánimo
+    // Ánimo - ESTILO MOTIVADOR INTENSO
     encouragement: {
-        good: '¡Muy bien! Sigue así',
-        perfect: '¡Excelente postura!',
-        almostThere: '¡Casi lo tienes!',
-        keepGoing: '¡Continúa, vas muy bien!',
-        greatForm: '¡Gran forma! Mantén esa posición',
-        halfwayThere: 'Ya vas a la mitad, ¡ánimo!',
-        lastRep: '¡Última repetición!',
-        completed: '¡Ejercicio completado! Buen trabajo',
+        good: '¡Eso es! ¡Sigue así!',
+        perfect: '¡Perfecto! ¡Así se hace!',
+        almostThere: '¡Ya casi! ¡No pares!',
+        keepGoing: '¡Dale duro! ¡No aflojes!',
+        greatForm: '¡Excelente forma! ¡Mantén!',
+        halfwayThere: '¡Mitad del camino! ¡Vamos!',
+        lastRep: '¡Última! ¡Con todo!',
+        completed: '¡Completado! ¡Eres una máquina!',
     },
 
     // Conteo
@@ -99,22 +99,22 @@ export const VOICE_MESSAGES = {
         ten: 'Diez',
     },
 
-    // Instrucciones de fase
+    // Instrucciones de fase - DIRECTAS
     phases: {
-        inhale: 'Inhala',
-        exhale: 'Exhala',
-        hold: 'Mantén',
-        relax: 'Relaja',
-        down: 'Baja',
-        up: 'Sube',
-        squeeze: 'Aprieta',
-        extend: 'Extiende',
-        bend: 'Dobla',
+        inhale: '¡Inhala!',
+        exhale: '¡Exhala!',
+        hold: '¡Mantén!',
+        relax: '¡Relaja!',
+        down: '¡Baja!',
+        up: '¡Sube!',
+        squeeze: '¡Aprieta!',
+        extend: '¡Extiende!',
+        bend: '¡Flexiona!',
     },
 };
 
 /**
- * Inicializar el servicio de voz
+ * Inicializar el servicio de voz - PREFERIR VOZ MASCULINA
  */
 export function initVoiceService(options = {}) {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -125,10 +125,35 @@ export function initVoiceService(options = {}) {
     // Aplicar opciones
     Object.assign(CONFIG, options);
 
-    // Buscar voz en español
+    // Buscar voz MASCULINA en español
     const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
-        voiceInstance = voices.find(v => v.lang.startsWith('es')) || voices[0];
+        const spanishVoices = voices.filter(v => v.lang.startsWith('es'));
+
+        // Priorizar voces masculinas (buscar por nombre común de voces masculinas)
+        const maleKeywords = ['male', 'hombre', 'jorge', 'pablo', 'david', 'diego', 'carlos', 'andres', 'microsoft pablo', 'google español'];
+        const femaleKeywords = ['female', 'mujer', 'paulina', 'monica', 'conchita', 'lucia', 'maria'];
+
+        // Intentar encontrar voz masculina
+        let selectedVoice = spanishVoices.find(v => {
+            const nameLower = v.name.toLowerCase();
+            const isMale = maleKeywords.some(k => nameLower.includes(k));
+            const isFemale = femaleKeywords.some(k => nameLower.includes(k));
+            return isMale && !isFemale;
+        });
+
+        // Si no hay masculina explícita, buscar una que NO sea femenina
+        if (!selectedVoice) {
+            selectedVoice = spanishVoices.find(v => {
+                const nameLower = v.name.toLowerCase();
+                return !femaleKeywords.some(k => nameLower.includes(k));
+            });
+        }
+
+        // Fallback a cualquier voz española o la primera disponible
+        voiceInstance = selectedVoice || spanishVoices[0] || voices[0];
+
+        console.log('🎤 Voz seleccionada:', voiceInstance?.name || 'default');
         isInitialized = true;
     };
 

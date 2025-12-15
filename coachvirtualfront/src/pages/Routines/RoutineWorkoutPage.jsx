@@ -134,7 +134,10 @@ export default function RoutineWorkoutPage() {
         return () => clearInterval(timerIntervalRef.current);
     }, [workoutState, isPaused, currentExerciseIndex]);
 
-    // Timer de descanso - cuenta regresiva
+    // Obtener ejercicio actual - DEFINIR ANTES de usarlo en useEffects
+    const currentExercise = exercises[currentExerciseIndex] || null;
+
+    // Timer de descanso - cuenta regresiva con visualización
     useEffect(() => {
         // Solo iniciar cuando entramos al estado REST
         if (workoutState === WORKOUT_STATES.REST) {
@@ -143,16 +146,23 @@ export default function RoutineWorkoutPage() {
                 clearInterval(restIntervalRef.current);
             }
 
+            const descansoTime = currentExercise?.descanso || 60;
+
             restIntervalRef.current = setInterval(() => {
                 setRestTimer(prev => {
                     if (prev <= 1) {
                         clearInterval(restIntervalRef.current);
-                        handleRestComplete();
+                        // Pequeño delay antes de continuar para que se vea el 0
+                        setTimeout(() => handleRestComplete(), 500);
                         return 0;
                     }
                     // Countdown voz en los últimos 5 segundos
-                    if (prev <= 5 && voiceEnabled) {
+                    if (prev <= 6 && prev > 1 && voiceEnabled) {
                         speakNumber(prev - 1);
+                    }
+                    // Anuncio de mitad de descanso
+                    if (prev === Math.floor(descansoTime / 2) && voiceEnabled) {
+                        speak('Mitad del descanso', 'info');
                     }
                     return prev - 1;
                 });
@@ -169,7 +179,7 @@ export default function RoutineWorkoutPage() {
                 clearInterval(restIntervalRef.current);
             }
         };
-    }, [workoutState, voiceEnabled]);
+    }, [workoutState, voiceEnabled, currentExercise]);
 
     // Explicar ejercicio cuando cambia
     useEffect(() => {
@@ -177,9 +187,6 @@ export default function RoutineWorkoutPage() {
             explainCurrentExercise();
         }
     }, [currentExerciseIndex, exercises, workoutState]);
-
-    // Obtener ejercicio actual
-    const currentExercise = exercises[currentExerciseIndex] || null;
 
     // Crear contador de repeticiones específico para el ejercicio actual
     useEffect(() => {
@@ -190,7 +197,7 @@ export default function RoutineWorkoutPage() {
         }
     }, [currentExercise]);
 
-    // Explicar ejercicio actual
+    // Explicar ejercicio actual con espera completa
     const explainCurrentExercise = useCallback(() => {
         if (!currentExercise) return;
 
@@ -203,7 +210,11 @@ export default function RoutineWorkoutPage() {
             speak(explanation, 'info', true);
         }
 
-        // Después de la explicación (10 segundos para que termine de hablar), pasar a activo
+        // Esperar a que termine la explicación (calcular tiempo aproximado basado en longitud)
+        const explanation = generateExerciseExplanation(currentExercise.id, 'full');
+        const palabras = explanation.split(' ').length;
+        const tiempoEstimado = Math.max(8000, palabras * 400); // ~150 palabras/min = 400ms/palabra
+
         setTimeout(() => {
             setShowDemo(false);
             explanationDoneRef.current = true;
@@ -211,7 +222,7 @@ export default function RoutineWorkoutPage() {
             if (voiceEnabled) {
                 speak('¡Ahora es tu turno! Cuando estés listo, comienza el ejercicio.', 'encouragement', true);
             }
-        }, 10000);
+        }, tiempoEstimado);
     }, [currentExercise, voiceEnabled]);
 
     // Manejar comando de voz
@@ -367,14 +378,18 @@ export default function RoutineWorkoutPage() {
         }
     }, [voiceEnabled]);
 
-    // Ir al siguiente ejercicio
+    // Ir al siguiente ejercicio - SOLO si completó todas las series
     const goToNextExercise = useCallback(() => {
+        // Verificar si completó todas las series (excepto si es skip manual)
+        const targetSets = currentExercise?.targetSets || 3;
+
         if (currentExerciseIndex < exercises.length - 1) {
             setCurrentExerciseIndex(prev => prev + 1);
             setRepCount(0);
             setSetCount(1);
             setExerciseTimer(0);
             setWorkoutState(WORKOUT_STATES.INTRO);
+            repCounterRef.current?.reset();
 
             if (voiceEnabled) {
                 speak('Pasamos al siguiente ejercicio', 'info');
@@ -386,7 +401,7 @@ export default function RoutineWorkoutPage() {
                 speak('¡Felicitaciones! Has completado toda la rutina. ¡Excelente trabajo!', 'encouragement', true);
             }
         }
-    }, [currentExerciseIndex, exercises.length, voiceEnabled]);
+    }, [currentExerciseIndex, exercises.length, voiceEnabled, currentExercise]);
 
     // Ir al ejercicio anterior
     const goToPrevExercise = useCallback(() => {
@@ -396,6 +411,7 @@ export default function RoutineWorkoutPage() {
             setSetCount(1);
             setExerciseTimer(0);
             setWorkoutState(WORKOUT_STATES.INTRO);
+            repCounterRef.current?.reset();
         }
     }, [currentExerciseIndex]);
 
@@ -413,7 +429,7 @@ export default function RoutineWorkoutPage() {
         }
     };
 
-    // Detección de pose con conteo específico por ejercicio
+    // Detección de pose con conteo específico por ejercicio y corrección de voz
     const handlePoseDetected = useCallback((landmarks) => {
         if (!currentExercise || workoutState !== WORKOUT_STATES.ACTIVE || isPaused) return;
 
@@ -446,9 +462,10 @@ export default function RoutineWorkoutPage() {
         if (result.errors && result.errors.length > 0) {
             setCorrections(result.errors);
 
-            // Dar feedback de voz con cooldown de 3 segundos
-            if (now - lastCorrectionTimeRef.current > 3000 && voiceEnabled) {
-                speak(result.errors[0].message, 'correction');
+            // Dar feedback de voz de corrección con cooldown de 2.5 segundos
+            if (now - lastCorrectionTimeRef.current > 2500 && voiceEnabled) {
+                // Decir la corrección en voz alta
+                speak(result.errors[0].message, 'correction', true);
                 lastCorrectionTimeRef.current = now;
             }
         } else if (result.isCorrect) {
@@ -465,8 +482,8 @@ export default function RoutineWorkoutPage() {
             const phaseMessage = phaseMessages[result.phase] || 'Buena forma';
             setCorrections([{ type: 'success', message: phaseMessage }]);
 
-            // Dar ánimo ocasional cuando la forma es correcta (cada 6 segundos)
-            if (now - lastCorrectionTimeRef.current > 6000 && voiceEnabled) {
+            // Dar ánimo ocasional cuando la forma es correcta (cada 5 segundos)
+            if (now - lastCorrectionTimeRef.current > 5000 && voiceEnabled) {
                 const encouragements = [
                     '¡Bien! Sigue así',
                     '¡Excelente técnica!',
@@ -481,7 +498,7 @@ export default function RoutineWorkoutPage() {
             }
         }
 
-        // Si se contó una repetición - con cooldown de 1 segundo mínimo entre reps
+        // Si se contó una repetición - SOLO si la forma es correcta
         if (result.counted && result.isCorrect) {
             // Solo contar si pasó al menos 1 segundo desde la última rep
             if (now - lastRepTimeRef.current > 1000) {
@@ -601,16 +618,28 @@ export default function RoutineWorkoutPage() {
                 <div className="grid lg:grid-cols-3 gap-6">
                     {/* Columna principal - Cámara/Demo */}
                     <div className="lg:col-span-2 space-y-4">
-                        {/* Estado del workout */}
+                        {/* Estado del workout - Contador de descanso GRANDE y visible */}
                         {workoutState === WORKOUT_STATES.REST && (
-                            <div className="bg-blue-600 rounded-xl p-6 text-center">
-                                <p className="text-blue-200 mb-2">Tiempo de descanso</p>
-                                <p className="text-6xl font-bold text-white">{restTimer}s</p>
+                            <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl p-8 text-center shadow-2xl">
+                                <p className="text-blue-200 mb-2 text-lg">⏱️ Tiempo de descanso</p>
+                                <p className="text-8xl font-bold text-white mb-4 font-mono">
+                                    {restTimer}
+                                    <span className="text-4xl">s</span>
+                                </p>
+                                <div className="w-full bg-blue-900/50 rounded-full h-4 mb-4">
+                                    <div
+                                        className="bg-white h-4 rounded-full transition-all duration-1000"
+                                        style={{ width: `${(restTimer / (currentExercise?.descanso || 60)) * 100}%` }}
+                                    />
+                                </div>
+                                <p className="text-blue-200 mb-4">
+                                    Serie {setCount} de {currentExercise?.targetSets || 3} completada
+                                </p>
                                 <button
                                     onClick={handleRestComplete}
-                                    className="mt-4 bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold"
+                                    className="mt-2 bg-white text-blue-600 px-8 py-3 rounded-xl font-bold hover:bg-blue-50 transition-colors"
                                 >
-                                    Saltar descanso
+                                    ⏭️ Saltar descanso
                                 </button>
                             </div>
                         )}

@@ -1,17 +1,33 @@
 import { fetchGroqCompletion } from './groqClient';
 import api from '../../api/api';
+import { EJERCICIOS as ejerciciosDataset } from './ejerciciosDataset';
 
 /**
  * Servicio para generar rutinas con IA usando Groq
+ * Incluye fallback robusto cuando la API falla
  */
 
 /**
  * Obtiene todos los ejercicios disponibles del backend
- * Usa la instancia centralizada de api.js
+ * Con fallback al dataset local
  */
 export async function obtenerEjerciciosDisponibles() {
-    const response = await api.get('/ejercicios-disponibles/');
-    return response.data;
+    try {
+        const response = await api.get('/ejercicios-disponibles/');
+        return response.data;
+    } catch (error) {
+        console.warn('Error obteniendo ejercicios del backend, usando dataset local:', error);
+        // Usar dataset local como fallback
+        return {
+            todos: ejerciciosDataset.map(ej => ({
+                id: ej.id,
+                nombre: ej.nombre,
+                musculo: ej.musculos?.join(', ') || 'General',
+                url: ej.url || '',
+                categoria: ej.categoria || 'Gimnasio'
+            }))
+        };
+    }
 }
 
 /**
@@ -94,70 +110,213 @@ FORMATO DE RESPUESTA (JSON):
 
 /**
  * Genera una rutina usando Groq AI
+ * Con manejo robusto de errores y fallback
  */
 export async function generarRutinaConIA(respuestas) {
     try {
-        // 1. Obtener ejercicios disponibles
+        // 1. Obtener ejercicios disponibles (con fallback)
         const ejerciciosData = await obtenerEjerciciosDisponibles();
+
+        // Verificar que tenemos ejercicios
+        if (!ejerciciosData.todos || ejerciciosData.todos.length === 0) {
+            console.warn('No hay ejercicios disponibles, usando fallback');
+            return {
+                success: true,
+                rutina: generarRutinaFallback(respuestas),
+                usedFallback: true
+            };
+        }
 
         // 2. Construir prompt
         const prompt = construirPrompt(respuestas, ejerciciosData);
 
-        // 3. Llamar a Groq
-        const respuestaIA = await fetchGroqCompletion({
-            prompt,
-            model: 'llama-3.1-8b-instant' // Modelo compatible y rápido
-        });
+        // 3. Llamar a Groq con timeout
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout: La IA tardó demasiado')), 30000)
+        );
 
-        // 4. Parsear JSON
-        // Limpiar posibles marcadores de código
+        const respuestaIA = await Promise.race([
+            fetchGroqCompletion({
+                prompt,
+                model: 'llama-3.1-8b-instant'
+            }),
+            timeoutPromise
+        ]);
+
+        // 4. Parsear JSON con limpieza robusta
         let jsonLimpio = respuestaIA.trim();
-        if (jsonLimpio.startsWith('```json')) {
-            jsonLimpio = jsonLimpio.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
-        } else if (jsonLimpio.startsWith('```')) {
-            jsonLimpio = jsonLimpio.replace(/```\n?/g, '');
+        
+        // Buscar JSON en la respuesta
+        const jsonMatch = jsonLimpio.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            jsonLimpio = jsonMatch[0];
         }
+        
+        // Limpiar marcadores de código
+        jsonLimpio = jsonLimpio
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .replace(/^\s*json\s*/i, '');
 
-        const rutina = JSON.parse(jsonLimpio);
+        let rutina;
+        try {
+            rutina = JSON.parse(jsonLimpio);
+        } catch (parseError) {
+            console.error('Error parseando JSON de IA:', parseError);
+            console.log('Respuesta recibida:', jsonLimpio.substring(0, 500));
+            return {
+                success: true,
+                rutina: generarRutinaFallback(respuestas, ejerciciosData),
+                usedFallback: true,
+                error: 'Error parseando respuesta de IA'
+            };
+        }
 
         // 5. Validar estructura
         if (!rutina.dias || rutina.dias.length === 0) {
-            throw new Error('La IA no generó días de entrenamiento');
+            console.warn('Rutina sin días, usando fallback');
+            return {
+                success: true,
+                rutina: generarRutinaFallback(respuestas, ejerciciosData),
+                usedFallback: true
+            };
         }
+
+        // 6. Enriquecer con URLs del dataset si faltan
+        rutina.dias = rutina.dias.map(dia => ({
+            ...dia,
+            ejercicios: dia.ejercicios.map(ej => {
+                const ejercicioOriginal = ejerciciosData.todos.find(e => e.id === ej.id);
+                return {
+                    ...ej,
+                    url: ej.url || ejercicioOriginal?.url || '',
+                    descanso: ej.descanso || 60
+                };
+            })
+        }));
 
         return {
             success: true,
             rutina,
-            prompt: prompt // Para debugging
+            prompt
         };
 
     } catch (error) {
         console.error('Error al generar rutina:', error);
         return {
-            success: false,
-            error: error.message,
-            fallback: generarRutinaFallback(respuestas)
+            success: true,
+            rutina: generarRutinaFallback(respuestas),
+            usedFallback: true,
+            error: error.message
         };
     }
 }
 
 /**
- * Rutina de fallback en caso de error con la IA
+ * Rutina de fallback completa cuando la IA falla
+ * Genera una rutina real con ejercicios del dataset
  */
-function generarRutinaFallback(respuestas) {
-    const { diasSemana, duracion } = respuestas;
+function generarRutinaFallback(respuestas, ejerciciosData = null) {
+    const { objetivo, nivel, diasSemana, duracion, areas } = respuestas;
+
+    // Obtener ejercicios del dataset local si no hay datos
+    let ejerciciosDisponibles = ejerciciosData?.todos || ejerciciosDataset.map(ej => ({
+        id: ej.id,
+        nombre: ej.nombre,
+        musculo: ej.musculo || 'General',  // Campo correcto del dataset
+        url: ej.url || '',
+        categoria: ej.tipo || 'Gimnasio'   // Campo correcto del dataset
+    }));
+
+    // Configuración según nivel
+    const configNivel = {
+        'Principiante': { series: 3, reps: '12-15', descanso: 60 },
+        'Intermedio': { series: 4, reps: '10-12', descanso: 45 },
+        'Avanzado': { series: 4, reps: '8-10', descanso: 30 }
+    }[nivel] || { series: 3, reps: '12', descanso: 60 };
+
+    // Distribuir grupos musculares por día
+    const distribucionDias = {
+        3: [
+            { nombre: 'Día 1: Tren Superior', musculos: ['pecho', 'espalda', 'hombro', 'brazo', 'bíceps', 'tríceps'] },
+            { nombre: 'Día 2: Piernas', musculos: ['pierna', 'cuádriceps', 'glúteo', 'pantorrilla'] },
+            { nombre: 'Día 3: Core y Cardio', musculos: ['abdomen', 'core', 'espalda baja'] }
+        ],
+        4: [
+            { nombre: 'Día 1: Pecho y Tríceps', musculos: ['pecho', 'tríceps'] },
+            { nombre: 'Día 2: Espalda y Bíceps', musculos: ['espalda', 'bíceps', 'dorsal'] },
+            { nombre: 'Día 3: Piernas', musculos: ['pierna', 'cuádriceps', 'glúteo', 'pantorrilla'] },
+            { nombre: 'Día 4: Hombros y Core', musculos: ['hombro', 'abdomen', 'core', 'deltoides'] }
+        ],
+        5: [
+            { nombre: 'Día 1: Pecho', musculos: ['pecho'] },
+            { nombre: 'Día 2: Espalda', musculos: ['espalda', 'dorsal'] },
+            { nombre: 'Día 3: Piernas', musculos: ['pierna', 'cuádriceps', 'glúteo'] },
+            { nombre: 'Día 4: Hombros', musculos: ['hombro', 'deltoides', 'trapecio'] },
+            { nombre: 'Día 5: Brazos y Core', musculos: ['bíceps', 'tríceps', 'abdomen', 'brazo'] }
+        ],
+        6: [
+            { nombre: 'Día 1: Pecho', musculos: ['pecho'] },
+            { nombre: 'Día 2: Espalda', musculos: ['espalda', 'dorsal'] },
+            { nombre: 'Día 3: Piernas Anterior', musculos: ['cuádriceps', 'pierna'] },
+            { nombre: 'Día 4: Hombros', musculos: ['hombro', 'deltoides'] },
+            { nombre: 'Día 5: Brazos', musculos: ['bíceps', 'tríceps', 'brazo'] },
+            { nombre: 'Día 6: Piernas Posterior y Core', musculos: ['glúteo', 'pantorrilla', 'abdomen'] }
+        ]
+    };
+
+    const dias = (distribucionDias[diasSemana] || distribucionDias[4]).map((dia, idx) => {
+        // Filtrar ejercicios para este día
+        const ejerciciosDia = ejerciciosDisponibles.filter(ej => {
+            const musculoLower = (ej.musculo || '').toLowerCase();
+            return dia.musculos.some(m => musculoLower.includes(m.toLowerCase()));
+        });
+
+        // Seleccionar 4-6 ejercicios aleatorios
+        const ejerciciosSeleccionados = ejerciciosDia
+            .sort(() => Math.random() - 0.5)
+            .slice(0, Math.min(6, Math.max(4, ejerciciosDia.length)));
+
+        // Si no hay suficientes, agregar ejercicios generales
+        if (ejerciciosSeleccionados.length < 4) {
+            const generales = ejerciciosDisponibles
+                .filter(e => !ejerciciosSeleccionados.includes(e))
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 4 - ejerciciosSeleccionados.length);
+            ejerciciosSeleccionados.push(...generales);
+        }
+
+        return {
+            numero: idx + 1,
+            nombre: dia.nombre,
+            ejercicios: ejerciciosSeleccionados.map(ej => ({
+                id: ej.id,
+                nombre: ej.nombre,
+                url: ej.url || '',
+                series: configNivel.series,
+                repeticiones: configNivel.reps,
+                descanso: configNivel.descanso
+            }))
+        };
+    });
+
+    // Crear nombre según objetivo
+    const nombresObjetivo = {
+        'Ganar músculo': 'Rutina de Hipertrofia',
+        'Perder peso': 'Rutina de Definición',
+        'Fisioterapia': 'Rutina de Rehabilitación',
+        'Flexibilidad': 'Rutina de Movilidad',
+        'Fuerza': 'Rutina de Fuerza',
+        'Resistencia': 'Rutina de Resistencia'
+    };
 
     return {
-        nombre: `Rutina ${diasSemana} días`,
-        descripcion: 'Rutina generada automáticamente (modo fallback)',
-        duracion: parseInt(duracion),
-        categoria: 'Gimnasio',
-        diasSemana,
-        dias: Array.from({ length: diasSemana }, (_, i) => ({
-            numero: i + 1,
-            nombre: `Día ${i + 1}: Cuerpo completo`,
-            ejercicios: []
-        }))
+        nombre: nombresObjetivo[objetivo] || `Rutina ${diasSemana} días`,
+        descripcion: `Rutina personalizada de ${diasSemana} días para ${(objetivo || 'fitness general').toLowerCase()}. Nivel: ${nivel || 'Intermedio'}`,
+        duracion: parseInt(duracion) || 45,
+        categoria: objetivo === 'Fisioterapia' ? 'Fisioterapia' : 'Gimnasio',
+        diasSemana: parseInt(diasSemana) || 4,
+        dias
     };
 }
 
