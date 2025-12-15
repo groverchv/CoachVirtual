@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
-import { generarRutinaConIA, guardarRutinaGenerada } from '../../services/rutinaIAService';
+import { generarRutinaConIA, guardarRutinaGenerada } from '../../services/IA/rutinaIAService';
 import { useNavigate } from 'react-router-dom';
 
 export default function WizardRutinaIA() {
@@ -218,8 +218,8 @@ export default function WizardRutinaIA() {
                                                 key={obj.valor}
                                                 onClick={() => actualizar('objetivo', obj.valor)}
                                                 className={`p-6 rounded-xl border-2 transition-all text-left ${respuestas.objetivo === obj.valor
-                                                        ? 'border-purple-600 bg-purple-50'
-                                                        : 'border-gray-200 hover:border-purple-300'
+                                                    ? 'border-purple-600 bg-purple-50'
+                                                    : 'border-gray-200 hover:border-purple-300'
                                                     }`}
                                             >
                                                 <div className="text-4xl mb-2">{obj.emoji}</div>
@@ -247,8 +247,8 @@ export default function WizardRutinaIA() {
                                                 key={niv.valor}
                                                 onClick={() => actualizar('nivel', niv.valor)}
                                                 className={`w-full p-6 rounded-xl border-2 transition-all text-left flex items-center gap-4 ${respuestas.nivel === niv.valor
-                                                        ? 'border-purple-600 bg-purple-50'
-                                                        : 'border-gray-200 hover:border-purple-300'
+                                                    ? 'border-purple-600 bg-purple-50'
+                                                    : 'border-gray-200 hover:border-purple-300'
                                                     }`}
                                             >
                                                 <div className="text-4xl">{niv.emoji}</div>
@@ -308,8 +308,8 @@ export default function WizardRutinaIA() {
                                                 key={dur.valor}
                                                 onClick={() => actualizar('duracion', dur.valor)}
                                                 className={`p-6 rounded-xl border-2 transition-all ${respuestas.duracion === dur.valor
-                                                        ? 'border-purple-600 bg-purple-50'
-                                                        : 'border-gray-200 hover:border-purple-300'
+                                                    ? 'border-purple-600 bg-purple-50'
+                                                    : 'border-gray-200 hover:border-purple-300'
                                                     }`}
                                             >
                                                 <div className="text-4xl mb-2">{dur.emoji}</div>
@@ -337,8 +337,8 @@ export default function WizardRutinaIA() {
                                                     key={area}
                                                     onClick={() => toggleArea(area)}
                                                     className={`py-3 px-4 rounded-xl border-2 font-medium transition-all ${respuestas.areas.includes(area)
-                                                            ? 'border-purple-600 bg-purple-50 text-purple-700'
-                                                            : 'border-gray-200 text-gray-700 hover:border-purple-300'
+                                                        ? 'border-purple-600 bg-purple-50 text-purple-700'
+                                                        : 'border-gray-200 text-gray-700 hover:border-purple-300'
                                                         }`}
                                                 >
                                                     {area}
@@ -377,8 +377,8 @@ export default function WizardRutinaIA() {
                                     onClick={handleNext}
                                     disabled={!puedeAvanzar()}
                                     className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${puedeAvanzar()
-                                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-lg'
-                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-lg'
+                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                         }`}
                                 >
                                     {paso === 5 ? (

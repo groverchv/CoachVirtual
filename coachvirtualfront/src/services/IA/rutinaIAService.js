@@ -1,4 +1,5 @@
 import { fetchGroqCompletion } from './groqClient';
+import api from '../../api/api';
 
 /**
  * Servicio para generar rutinas con IA usando Groq
@@ -6,15 +7,11 @@ import { fetchGroqCompletion } from './groqClient';
 
 /**
  * Obtiene todos los ejercicios disponibles del backend
+ * Usa la instancia centralizada de api.js
  */
 export async function obtenerEjerciciosDisponibles() {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    const response = await fetch(`${apiUrl}/api/ejercicios-disponibles/`);
-    if (!response.ok) {
-        throw new Error('Error al obtener ejercicios');
-    }
-    const data = await response.json();
-    return data;
+    const response = await api.get('/ejercicios-disponibles/');
+    return response.data;
 }
 
 /**
@@ -33,9 +30,9 @@ function construirPrompt(respuestas, ejercicios) {
 
     // Limitar a 30 ejercicios para no sobrecargar el prompt
     const ejerciciosLimitados = ejerciciosFiltrados.slice(0, 30);
-    
+
     // Crear lista simplificada de ejercicios para el prompt
-    const ejerciciosTexto = ejerciciosLimitados.map(ej => 
+    const ejerciciosTexto = ejerciciosLimitados.map(ej =>
         `- ${ej.nombre} (ID: ${ej.id}, Músculo: ${ej.musculo}, URL: ${ej.url || ''})`
     ).join('\n');
 
@@ -166,6 +163,7 @@ function generarRutinaFallback(respuestas) {
 
 /**
  * Guarda la rutina generada usando el mismo formato que la creación manual
+ * Usa la instancia centralizada de api.js
  */
 export async function guardarRutinaGenerada(rutina) {
     // Convertir al formato que usa RoutineService.create()
@@ -188,18 +186,12 @@ export async function guardarRutinaGenerada(rutina) {
         datos_rutina: datosRutina
     };
 
-    // Usar la misma API que la creación manual
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    const response = await fetch(`${apiUrl}/api/rutinas/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
+    try {
+        const response = await api.post('/rutinas/', payload);
+        return response.data;
+    } catch (error) {
         // Si falla, guardar en localStorage como fallback
+        console.error('Error guardando rutina en backend:', error);
         const raw = localStorage.getItem('cv_rutinas');
         const list = raw ? JSON.parse(raw) : [];
         const id = Date.now();
@@ -208,6 +200,4 @@ export async function guardarRutinaGenerada(rutina) {
         localStorage.setItem('cv_rutinas', JSON.stringify(list));
         return item;
     }
-
-    return await response.json();
 }

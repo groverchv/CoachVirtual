@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import PoseDetector from './PoseDetector';
-import { fetchGroqCompletion } from '../../services/groqClient';
+import { fetchGroqCompletion } from '../../services/IA/groqClient';
 import { useSpeech } from '../../utils/useSpeech';
 import { calculateBodyAngles } from '../../utils/poseUtils';
 import { savePoseTrainingData } from '../../services/poseTrainingApi';

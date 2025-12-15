@@ -220,6 +220,41 @@ def verificar_estado_sesion(request):
                         historial.usuario.fecha_expiracion_plan = historial.fecha_expiracion
                         historial.usuario.save()
                         
+                        # *** CREAR ALERTA DE FELICITACIÓN ***
+                        try:
+                            from usuarios.models import Alertas
+                            
+                            # Obtener información del plan
+                            plan_nombre = historial.tipo_plan.nombre if historial.tipo_plan else historial.plan.upper()
+                            plan_minutos = historial.tipo_plan.minutos_por_dia if historial.tipo_plan else 60
+                            plan_feedback = historial.tipo_plan.feedback_voz if historial.tipo_plan else False
+                            plan_angulos = historial.tipo_plan.analisis_angulos if historial.tipo_plan else False
+                            
+                            # Construir mensaje con beneficios
+                            beneficios = []
+                            if plan_minutos == -1:
+                                beneficios.append("⏰ Tiempo ilimitado de ejercicio")
+                            elif plan_minutos > 0:
+                                beneficios.append(f"⏰ {plan_minutos} minutos por día")
+                            if plan_feedback:
+                                beneficios.append("🗣️ Feedback con voz")
+                            if plan_angulos:
+                                beneficios.append("📐 Análisis de ángulos")
+                            
+                            beneficios_texto = ", ".join(beneficios) if beneficios else "todas las funciones premium"
+                            
+                            mensaje = f"🎉 ¡Felicidades! Has activado el plan {plan_nombre}. Ahora tienes acceso a: {beneficios_texto}. ¡Disfruta tu entrenamiento! 💪"
+                            
+                            Alertas.objects.create(
+                                usuario=historial.usuario,
+                                mensaje=mensaje,
+                                estado=True,
+                                fecha=timezone.now()
+                            )
+                            print(f"✅ Alerta de pago creada para {historial.usuario.email}")
+                        except Exception as alert_error:
+                            print(f"⚠️ Error creando alerta de pago: {alert_error}")
+                        
                         response_data['plan_activated'] = True
                         response_data['plan'] = historial.plan
                 except HistorialSuscripcion.DoesNotExist:

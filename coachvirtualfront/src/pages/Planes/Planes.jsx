@@ -72,11 +72,42 @@ export default function Planes() {
     try {
       const response = await PlanService.verificarSesionStripe(sessionId);
       if (response.plan_activated || response.payment_status === 'paid') {
-        setSuccess('¡Pago realizado con éxito! Tu plan ha sido activado.');
+        // Refrescar el plan para obtener detalles actualizados
         await refrescarPlan?.();
+
+        // Obtener nombre del plan activado
+        const planActivado = response.plan || planActual?.plan_actual || 'premium';
+        const planInfo = planes.find(p => p.clave === planActivado);
+
+        // Crear notificación de felicitación
+        try {
+          await api.post('/alertas/', {
+            mensaje: `🎉 ¡Felicidades! Has activado el plan ${planInfo?.nombre || planActivado.toUpperCase()}. Ahora tienes acceso a: ${planInfo?.minutos_por_dia === -1 ? 'Tiempo ilimitado' : `${planInfo?.minutos_por_dia} min/día`}, ${planInfo?.feedback_voz ? 'feedback con voz' : ''}, ${planInfo?.analisis_angulos ? 'análisis de ángulos' : ''}. ¡Disfruta tu entrenamiento! 💪`,
+            estado: true,
+          });
+        } catch (notifError) {
+          console.warn('No se pudo crear notificación:', notifError);
+        }
+
+        // Guardar en sessionStorage para mostrar en Home
+        sessionStorage.setItem('payment_success', JSON.stringify({
+          planName: planInfo?.nombre || planActivado,
+          planIcon: planInfo?.icono || '🎉',
+          features: [
+            planInfo?.minutos_por_dia === -1 ? 'Tiempo ilimitado de ejercicio' : `${planInfo?.minutos_por_dia} minutos por día`,
+            planInfo?.feedback_voz ? 'Feedback con voz' : null,
+            planInfo?.analisis_angulos ? 'Análisis de ángulos' : null,
+            planInfo?.historial_dias === -1 ? 'Historial ilimitado' : planInfo?.historial_dias > 0 ? `${planInfo?.historial_dias} días de historial` : null,
+            !planInfo?.con_anuncios ? 'Sin anuncios' : null,
+          ].filter(Boolean),
+        }));
+
+        // Redirigir a la página de inicio
+        navigate('/');
       }
     } catch (err) {
       console.error('Error verificando pago:', err);
+      setError('Hubo un problema verificando tu pago. Por favor contacta soporte.');
     }
   };
 
@@ -196,10 +227,10 @@ export default function Planes() {
               <div
                 key={plan.id}
                 className={`relative bg-white/10 backdrop-blur-lg rounded-3xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl ${plan.popular
-                    ? 'border-yellow-400/50 ring-2 ring-yellow-400/30'
-                    : isCurrentPlan
-                      ? 'border-green-400/50'
-                      : 'border-white/20'
+                  ? 'border-yellow-400/50 ring-2 ring-yellow-400/30'
+                  : isCurrentPlan
+                    ? 'border-green-400/50'
+                    : 'border-white/20'
                   }`}
               >
                 {/* Popular badge */}

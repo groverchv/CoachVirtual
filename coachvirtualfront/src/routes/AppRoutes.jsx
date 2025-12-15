@@ -76,6 +76,7 @@ import GestionarTiposPlanes from "../pages/Planes/GestionarTiposPlanes";
 import Pago from "../pages/Planes/Pago";
 
 import AlertNotifier from "../pages/GestionarAlerta/AlertNotifier";
+import PaymentSuccessModal from "../components/PaymentSuccessModal";
 
 // Flujo de ejercicios limpio
 import CategoriaEjercicios from "../pages/EjerciciosFlow/CategoriaEjercicios";
@@ -153,6 +154,7 @@ function AuthenticatedLayout() {
   return (
     <>
       <AlertNotifier intervalMs={10000} />
+      <PaymentSuccessModal />
       <Outlet />
     </>
   );
