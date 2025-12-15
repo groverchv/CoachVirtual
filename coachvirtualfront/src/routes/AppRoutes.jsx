@@ -82,6 +82,9 @@ import PaymentSuccessModal from "../components/PaymentSuccessModal";
 import CategoriaEjercicios from "../pages/EjerciciosFlow/CategoriaEjercicios";
 import ParteCuerpo from "../pages/EjerciciosFlow/ParteCuerpo";
 import SeleccionEjercicio from "../pages/EjerciciosFlow/SeleccionEjercicio";
+import EjercicioDetector from "../pages/Detector/EjercicioDetector";
+import RoutineWorkoutPage from "../pages/Routines/RoutineWorkoutPage";
+import UniversalExercisePage from "../pages/Exercises/UniversalExercisePage";
 
 // Flujo categoría / músculo / ejercicios
 import SelectCategory from "../pages/Categoria/SelectCategory";
@@ -266,6 +269,9 @@ export default function AppRoutes() {
           <Route path="/ejercicios/categoria" element={<CategoriaEjercicios />} />
           <Route path="/ejercicios/parte-cuerpo" element={<ParteCuerpo />} />
           <Route path="/ejercicios/seleccion" element={<SeleccionEjercicio />} />
+          <Route path="/ejercicio/:id" element={<EjercicioDetector />} />
+          <Route path="/rutina/:rutinaId/workout" element={<RoutineWorkoutPage />} />
+          <Route path="/workout/exercise/:id" element={<UniversalExercisePage />} />
           <Route path="/mis-alertas" element={<AlertaUsuario />} />
           <Route path="/seleccionar" element={<GestionarTipoUsuario />} />
 

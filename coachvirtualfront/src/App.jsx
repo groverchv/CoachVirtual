@@ -8,6 +8,7 @@ import { AuthProvider } from "./auth/AuthProvider.jsx";
 import { CategoryProvider } from "./context/CategoryContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
 import Dispositivo from "./components/Dispositivo";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
 
 function AppContent({ sidebarOpen, setSidebarOpen }) {
   const location = useLocation();
@@ -43,7 +44,9 @@ function AppContent({ sidebarOpen, setSidebarOpen }) {
         className={`${hideHeader ? "" : "pt-16"} transition-all duration-300 ${!hideSidebar && sidebarOpen ? "ml-56 max-md:ml-0" : "ml-0"
           }`}
       >
-        <AppRoutes />
+        <ErrorBoundary>
+          <AppRoutes />
+        </ErrorBoundary>
       </div>
 
       {/* Panel Google Fit (solo en páginas de ejercicios) */}
@@ -64,17 +67,19 @@ export default function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <CategoryProvider>
-          <SubscriptionProvider>
-            <AppContent
-              sidebarOpen={sidebarOpen}
-              setSidebarOpen={setSidebarOpen}
-            />
-          </SubscriptionProvider>
-        </CategoryProvider>
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <CategoryProvider>
+            <SubscriptionProvider>
+              <AppContent
+                sidebarOpen={sidebarOpen}
+                setSidebarOpen={setSidebarOpen}
+              />
+            </SubscriptionProvider>
+          </CategoryProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

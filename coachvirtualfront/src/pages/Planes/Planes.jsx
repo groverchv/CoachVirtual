@@ -4,7 +4,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import { useAuth } from '../../auth/useAuth';
 import PlanService from '../../services/PlanService';
 import api from '../../api/api';
-import { Crown, Check, X, Clock, CreditCard } from 'lucide-react';
+import { Crown, Check, X, Clock, CreditCard, Flame, Star, Lock, Sparkles } from 'lucide-react';
 
 export default function Planes() {
   const navigate = useNavigate();
@@ -235,8 +235,8 @@ export default function Planes() {
               >
                 {/* Popular badge */}
                 {plan.popular && (
-                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-2 text-center text-sm font-bold">
-                    🔥 MÁS POPULAR
+                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-2 text-center text-sm font-bold flex items-center justify-center gap-2">
+                    <Flame className="w-4 h-4" /> MÁS POPULAR
                   </div>
                 )}
 
@@ -329,9 +329,9 @@ export default function Planes() {
 
         {/* Footer info */}
         <div className="mt-12 sm:mt-16 text-center space-y-2 text-gray-400 text-xs sm:text-sm px-4">
-          <p>✨ Todos los planes incluyen acceso a ejercicios de gimnasio y fisioterapia</p>
-          <p>💳 Pagos seguros procesados por Stripe</p>
-          <p>🔒 Puedes cancelar en cualquier momento</p>
+          <p className="flex items-center justify-center gap-2"><Sparkles className="w-4 h-4" /> Todos los planes incluyen acceso a ejercicios de gimnasio y fisioterapia</p>
+          <p className="flex items-center justify-center gap-2"><CreditCard className="w-4 h-4" /> Pagos seguros procesados por Stripe</p>
+          <p className="flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> Puedes cancelar en cualquier momento</p>
         </div>
       </div>
     </div>

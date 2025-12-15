@@ -14,7 +14,7 @@ from ..models import HistorialSuscripcion, TipoPlan
 stripe.api_key = config('STRIPE_SECRET_KEY', default='')
 
 # URL base del frontend (configurable desde .env)
-FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5174')
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 
 
 def get_user_from_request(request):
@@ -116,8 +116,8 @@ def crear_checkout_session(request):
             activo=False
         )
         
-        # URLs de retorno
-        success_url = f'{FRONTEND_URL}/planes?success=true&session_id={{CHECKOUT_SESSION_ID}}'
+        # URLs de retorno - redirige al home principal
+        success_url = f'{FRONTEND_URL}/?payment_success=true&session_id={{CHECKOUT_SESSION_ID}}'
         cancel_url = f'{FRONTEND_URL}/planes?canceled=true'
         
         # Crear sesión de checkout con precio dinámico

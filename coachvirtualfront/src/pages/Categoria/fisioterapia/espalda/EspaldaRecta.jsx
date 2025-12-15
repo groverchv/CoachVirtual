@@ -1,8 +1,10 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import YogaPoseDetector from '../../../Yoga/YogaPoseDetector';
 import { calculateBodyAngles } from '../../../../utils/poseUtils';
 import { useSpeech } from '../../../../utils/useSpeech';
+import VoiceFeedbackOverlay from '../../../../components/ui/VoiceFeedbackOverlay';
+import { speak as voiceSpeak, speakCorrection, speakEncouragement, initVoiceService } from '../../../../services/IA/voiceFeedbackService';
 
 /**
  * Vista de rutina de Espalda Recta (Sentado)
@@ -18,6 +20,9 @@ export default function EspaldaRecta() {
   const [stage, setStage] = useState('start'); // 'start', 'holding', 'relax'
   const [feedback, setFeedback] = useState('Siéntate derecho');
   const [holdTimer, setHoldTimer] = useState(0);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [corrections, setCorrections] = useState([]);
+  const [isCorrect, setIsCorrect] = useState(false);
 
   const [currentAngles, setCurrentAngles] = useState({
     rightHip: 0,
@@ -27,6 +32,16 @@ export default function EspaldaRecta() {
   });
 
   const { speak } = useSpeech({ lang: 'es-ES' });
+
+  // Inicializar servicio de voz
+  useEffect(() => {
+    if (started) {
+      initVoiceService();
+      if (voiceEnabled) {
+        voiceSpeak('Siéntate con la espalda recta. Mantén la postura por 5 segundos.', 'info', true);
+      }
+    }
+  }, [started, voiceEnabled]);
 
   // Refs para lógica de control
   const holdStartTimeRef = useRef(null);
@@ -53,15 +68,21 @@ export default function EspaldaRecta() {
     });
 
     // Validar postura: Cadera en ángulo recto (aprox)
-    // Usamos el promedio o el lado más visible
     const hipAngle = (rightHip + leftHip) / 2;
-
     const isBackStraight = hipAngle >= HIP_ANGLE_MIN && hipAngle <= HIP_ANGLE_MAX;
+    const isPoseCorrect = isBackStraight;
 
-    // Opcional: Verificar rodillas también (~90 grados si los pies están en el suelo)
-    // const isKneesBent = rightKnee > 70 && rightKnee < 110;
+    // Actualizar estado de corrección visual
+    setIsCorrect(isPoseCorrect);
 
-    const isPoseCorrect = isBackStraight; // && isKneesBent;
+    // Generar correcciones específicas
+    const newCorrections = [];
+    if (hipAngle < HIP_ANGLE_MIN) {
+      newCorrections.push({ type: 'backBent', message: 'Enderézate, no te encorves' });
+    } else if (hipAngle > HIP_ANGLE_MAX) {
+      newCorrections.push({ type: 'backArched', message: 'No te recuestes demasiado' });
+    }
+    setCorrections(newCorrections);
 
     const now = Date.now();
 
@@ -72,14 +93,19 @@ export default function EspaldaRecta() {
           lastRepTimeRef.current = now;
           setStage('holding');
           setFeedback('Mantén la espalda recta...');
-          speak('Mantén la postura');
+          if (voiceEnabled) voiceSpeak('¡Bien! Mantén la postura', 'encouragement', true);
         }
       } else {
-        // Feedback específico
-        if (hipAngle < HIP_ANGLE_MIN) setFeedback('Enderézate, no te encorves');
-        else if (hipAngle > HIP_ANGLE_MAX) setFeedback('No te recuestes tanto');
-        else setFeedback('Siéntate con la espalda recta');
-
+        // Feedback específico con voz
+        if (hipAngle < HIP_ANGLE_MIN) {
+          setFeedback('Enderézate, no te encorves');
+          if (voiceEnabled) voiceSpeak('Enderézate, estás encorvado', 'correction');
+        } else if (hipAngle > HIP_ANGLE_MAX) {
+          setFeedback('No te recuestes tanto');
+          if (voiceEnabled) voiceSpeak('No te recuestes, mantén la espalda vertical', 'correction');
+        } else {
+          setFeedback('Siéntate con la espalda recta');
+        }
         holdStartTimeRef.current = null;
       }
     }
@@ -93,8 +119,8 @@ export default function EspaldaRecta() {
 
         if (elapsed >= HOLD_DURATION_MS) {
           setStage('relax');
-          setFeedback('¡Bien! Relaja un momento');
-          speak('Descansa');
+          setFeedback('¡Excelente! Relaja un momento');
+          if (voiceEnabled) speakEncouragement('completed');
           setRepCount(c => c + 1);
           holdStartTimeRef.current = null;
           setHoldTimer(0);
@@ -103,7 +129,8 @@ export default function EspaldaRecta() {
         // Gracia de 1 segundo
         if (now - lastRepTimeRef.current > 1000) {
           setStage('start');
-          setFeedback('Postura perdida');
+          setFeedback('Postura perdida, inténtalo de nuevo');
+          if (voiceEnabled) voiceSpeak('Postura perdida, vuelve a intentarlo', 'correction');
           holdStartTimeRef.current = null;
           setHoldTimer(0);
         }
@@ -178,8 +205,19 @@ export default function EspaldaRecta() {
             <div className="bg-white rounded-xl shadow-lg overflow-hidden border-4 border-white relative">
               <YogaPoseDetector onPoseDetected={handlePoseDetected} highlightedAngles={highlightedAngles} />
 
+              {/* Overlay de feedback de voz */}
+              <VoiceFeedbackOverlay
+                corrections={corrections}
+                currentInstruction={feedback}
+                isCorrect={isCorrect}
+                repCount={repCount}
+                exerciseName={passedNombre}
+                voiceEnabled={voiceEnabled}
+                onVoiceToggle={setVoiceEnabled}
+              />
+
               {stage === 'holding' && (
-                <div className="absolute top-4 right-4 bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center text-3xl font-bold shadow-lg animate-pulse">
+                <div className="absolute top-20 right-4 bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center text-3xl font-bold shadow-lg animate-pulse z-30">
                   {holdTimer}
                 </div>
               )}

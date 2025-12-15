@@ -371,7 +371,14 @@ export default function SeleccionEjercicio() {
       }
     }
 
-    alert('Ruta de rutina no implementada para: ' + ejercicio.nombre);
+    // Fallback: usar página universal que funciona con CUALQUIER ejercicio
+    navigate(`/workout/exercise/${ejercicio.id}`, {
+      state: {
+        imageUrl: ejercicio.url,
+        nombre: ejercicio.nombre,
+        porcentaje: ejercicio.porcentaje
+      }
+    });
   };
 
   const handleBack = () => {

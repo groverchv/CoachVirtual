@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { Camera, RefreshCw, XCircle, AlertTriangle } from 'lucide-react';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 segundos entre reintentos
 
 export default function YogaPoseDetector({ onPoseDetected, highlightedAngles = [] }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const poseLandmarkerRef = useRef(null);
   const animationFrameRef = useRef(null);
   const onPoseDetectedRef = useRef(onPoseDetected);
   const highlightedAnglesRef = useRef(highlightedAngles);
   const smoothedLandmarksRef = useRef(null);
+  const retryTimeoutRef = useRef(null);
 
   // Actualizar referencias
   useEffect(() => {
@@ -43,10 +49,13 @@ export default function YogaPoseDetector({ onPoseDetected, highlightedAngles = [
 
   useEffect(() => {
     let stream = null;
+    let isMounted = true;
 
-    const initializePoseDetector = async () => {
+    const initializePoseDetector = async (attempt = 0) => {
       try {
         setIsLoading(true);
+        setError(null);
+        console.log(`📷 Intento ${attempt + 1} de ${MAX_RETRIES} para inicializar cámara...`);
 
         // 1. Verificar si hay cámara disponible
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -131,8 +140,21 @@ export default function YogaPoseDetector({ onPoseDetected, highlightedAngles = [
           errorMsg = `Error al cargar: ${err.message || 'Verifica tu conexión y permisos de cámara'}`;
         }
 
-        setError(errorMsg);
-        setIsLoading(false);
+        // Reintentar automáticamente si no se alcanzó el máximo de intentos
+        if (attempt < MAX_RETRIES - 1 && isMounted) {
+          console.log(`🔄 Reintentando en ${RETRY_DELAY / 1000} segundos... (intento ${attempt + 2}/${MAX_RETRIES})`);
+          setError(`Conectando cámara... (intento ${attempt + 2}/${MAX_RETRIES})`);
+          retryTimeoutRef.current = setTimeout(() => {
+            if (isMounted) {
+              setRetryCount(attempt + 1);
+              initializePoseDetector(attempt + 1);
+            }
+          }, RETRY_DELAY);
+        } else {
+          // Máximo de intentos alcanzado, mostrar error final
+          setError(errorMsg);
+          setIsLoading(false);
+        }
       }
     };
 
@@ -277,12 +299,16 @@ export default function YogaPoseDetector({ onPoseDetected, highlightedAngles = [
       detect();
     };
 
-    initializePoseDetector();
+    initializePoseDetector(0);
 
     // Cleanup
     return () => {
+      isMounted = false;
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
       }
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -319,19 +345,48 @@ export default function YogaPoseDetector({ onPoseDetected, highlightedAngles = [
   }
 
   return (
-    <div className="relative bg-black rounded-lg overflow-hidden">
+    <div
+      className="relative rounded-lg overflow-hidden"
+      style={{
+        minHeight: '400px',
+        width: '100%',
+        background: 'linear-gradient(135deg, #1e3a5f 0%, #2d1b4e 50%, #1a1a2e 100%)'
+      }}
+    >
+      {/* Fondo con indicador de cámara cuando no hay video */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60 z-0">
+        <Camera className="w-16 h-16 mb-4 animate-pulse" />
+        <p className="text-sm mb-4">Posiciónate frente a la cámara</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+        >
+          <RefreshCw className="w-4 h-4" /> Reintentar cámara
+        </button>
+      </div>
+
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        className="w-full h-auto"
-        style={{ transform: 'scaleX(-1)', display: 'block' }}
+        width="1280"
+        height="720"
+        style={{
+          width: '100%',
+          height: 'auto',
+          minHeight: '400px',
+          display: 'block',
+          transform: 'scaleX(-1)',
+          objectFit: 'cover',
+          position: 'relative',
+          zIndex: 1,
+        }}
       />
       <canvas
         ref={canvasRef}
-        className="absolute top-0 left-0 w-full h-full"
-        style={{ transform: 'scaleX(-1)' }}
+        className="absolute top-0 left-0 w-full h-full pointer-events-none"
+        style={{ transform: 'scaleX(-1)', zIndex: 2 }}
       />
     </div>
   );

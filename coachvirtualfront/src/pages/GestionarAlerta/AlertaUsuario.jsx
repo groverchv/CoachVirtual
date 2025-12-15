@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AlertaService } from "../../services/AlertaService";
 import api from "../../api/api";
 import { useAuth } from "../../auth/useAuth";
+import { Bell, RefreshCw, Clock, AlertCircle, Inbox } from 'lucide-react';
 
 const fmtDate = (iso) => {
   if (!iso) return "";
@@ -12,6 +13,13 @@ const fmtDateTime = (iso) => {
   if (!iso) return "";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+};
+
+// Limpiar emojis del mensaje para mostrar solo texto
+const cleanMessage = (msg) => {
+  if (!msg) return "";
+  // Remover emojis comunes
+  return msg.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
 };
 
 const candidateUrls = (uid) => [
@@ -31,7 +39,7 @@ export default function AlertaUsuario() {
     const sorted = [...(arr || [])].sort((a, b) => {
       const da = new Date(a.created_at).getTime() || 0;
       const db = new Date(b.created_at).getTime() || 0;
-      if (db !== da) return db - da; // más recientes primero
+      if (db !== da) return db - da;
       return (b.id || 0) - (a.id || 0);
     });
     setItems(sorted);
@@ -49,7 +57,7 @@ export default function AlertaUsuario() {
           setLoading(false);
           return;
         }
-      } catch {}
+      } catch { }
 
       let fetched = null;
       for (const url of candidateUrls(uid)) {
@@ -59,7 +67,7 @@ export default function AlertaUsuario() {
             fetched = data;
             break;
           }
-        } catch {}
+        } catch { }
       }
       if (!fetched) {
         const all = await AlertaService.list();
@@ -72,8 +80,8 @@ export default function AlertaUsuario() {
     } catch (e) {
       setErr(
         e?.response?.data?.detail ||
-          e?.message ||
-          "No se pudieron cargar tus alertas."
+        e?.message ||
+        "No se pudieron cargar tus alertas."
       );
     } finally {
       setLoading(false);
@@ -81,49 +89,70 @@ export default function AlertaUsuario() {
   };
 
   useEffect(() => {
-    load(); /* eslint-disable-next-line */
+    load();
   }, [uid]);
 
   if (!uid) {
     return (
-      <main className="min-h-screen p-6 bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900">
-        <p className="text-white/80">Cargando tu sesión…</p>
+      <main className="min-h-screen p-6 bg-slate-950">
+        <p className="text-slate-400">Cargando tu sesión…</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen p-6 bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900">
-      <div className="max-w-5xl mx-auto mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Mis alertas</h1>
-          <p className="text-white/70 text-sm">Viendo tus notificaciones.</p>
+    <main className="min-h-screen p-6 bg-slate-950">
+      <div className="max-w-4xl mx-auto mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center">
+            <Bell className="w-5 h-5 text-slate-400" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-slate-100">Mis alertas</h1>
+            <p className="text-slate-500 text-sm">Viendo tus notificaciones.</p>
+          </div>
         </div>
         <button
           onClick={load}
-          className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/15"
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
         >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Recargar
         </button>
       </div>
 
-      <section className="max-w-5xl mx-auto bg-white/10 border border-white/20 rounded-2xl p-4 backdrop-blur">
+      <section className="max-w-4xl mx-auto bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
         {loading ? (
-          <p className="text-white/80">Cargando…</p>
+          <div className="p-6 flex items-center gap-3 text-slate-400">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            Cargando alertas...
+          </div>
         ) : err ? (
-          <div className="p-3 rounded-xl bg-yellow-500/20 border border-yellow-400 text-yellow-100 text-sm">
-            {err}
+          <div className="p-4 flex items-center gap-3 bg-amber-950/50 border-b border-amber-900/50 text-amber-300">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm">{err}</span>
           </div>
         ) : items.length === 0 ? (
-          <p className="text-white/80">No hay alertas para mostrar.</p>
+          <div className="p-12 text-center text-slate-500">
+            <Inbox className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+            <p>No hay alertas para mostrar.</p>
+          </div>
         ) : (
-          <ul className="divide-y divide-white/10">
+          <ul className="divide-y divide-slate-800">
             {items.map((a) => (
-              <li key={a.id} className="py-3">
-                <div className="text-white font-medium">{a.mensaje}</div>
-                <div className="text-white/60 text-sm">
-                  Recibida: {fmtDateTime(a.created_at)}
-                  {a.fecha ? ` · Límite: ${fmtDateTime(a.fecha)}` : ""}
+              <li key={a.id} className="p-4 hover:bg-slate-800/50 transition-colors">
+                <p className="text-slate-200 font-medium">{cleanMessage(a.mensaje)}</p>
+                <div className="flex items-center gap-4 mt-2 text-slate-500 text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    {fmtDateTime(a.created_at)}
+                  </span>
+                  {a.fecha && (
+                    <span className="text-slate-600">
+                      Límite: {fmtDateTime(a.fecha)}
+                    </span>
+                  )}
                 </div>
               </li>
             ))}

@@ -3,19 +3,23 @@ import { useEffect, useRef, useState } from "react";
 import { AlertaService } from "../../services/AlertaService";
 import NotificationService from "../../services/NotificationService";
 import { useNavigate } from "react-router-dom";
+import {
+  CreditCard, CheckCircle, AlertTriangle, Dumbbell,
+  Bell, BarChart3, Trophy, Volume2
+} from 'lucide-react';
 
 const SOUND_PREF_KEY = "alerts:soundEnabled";
 
-// Configuración de tipos de notificación
+// Configuración de tipos de notificación con componentes de icono
 const NOTIFICATION_TYPES = {
-  payment: { icon: '💳', color: 'bg-red-500/20 border-red-400', label: 'Pago' },
-  routine_complete: { icon: '✅', color: 'bg-green-500/20 border-green-400', label: 'Rutina' },
-  exercise_limit: { icon: '⚠️', color: 'bg-yellow-500/20 border-yellow-400', label: 'Límite' },
-  motivation: { icon: '💪', color: 'bg-purple-500/20 border-purple-400', label: 'Motivación' },
-  inactivity: { icon: '🔔', color: 'bg-blue-500/20 border-blue-400', label: 'Recordatorio' },
-  progress: { icon: '📊', color: 'bg-blue-500/20 border-blue-400', label: 'Progreso' },
-  achievement: { icon: '🏆', color: 'bg-yellow-500/20 border-yellow-400', label: 'Logro' },
-  default: { icon: '🔔', color: 'bg-white/10 border-white/20', label: 'Alerta' },
+  payment: { Icon: CreditCard, color: 'bg-red-500/20 border-red-400', label: 'Pago' },
+  routine_complete: { Icon: CheckCircle, color: 'bg-green-500/20 border-green-400', label: 'Rutina' },
+  exercise_limit: { Icon: AlertTriangle, color: 'bg-yellow-500/20 border-yellow-400', label: 'Límite' },
+  motivation: { Icon: Dumbbell, color: 'bg-purple-500/20 border-purple-400', label: 'Motivación' },
+  inactivity: { Icon: Bell, color: 'bg-blue-500/20 border-blue-400', label: 'Recordatorio' },
+  progress: { Icon: BarChart3, color: 'bg-blue-500/20 border-blue-400', label: 'Progreso' },
+  achievement: { Icon: Trophy, color: 'bg-yellow-500/20 border-yellow-400', label: 'Logro' },
+  default: { Icon: Bell, color: 'bg-white/10 border-white/20', label: 'Alerta' },
 };
 
 function getNotificationType(mensaje) {
@@ -150,6 +154,8 @@ export default function AlertNotifier({
   const handleMarkAsRead = async (alertId) => {
     await NotificationService.markAsRead(alertId);
     setCards((prev) => prev.filter((c) => c.id !== alertId));
+    // Recargar stats para actualizar el badge
+    loadStats();
   };
 
   const loadStats = async () => {
@@ -227,7 +233,7 @@ export default function AlertNotifier({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <span className="text-2xl">{a._type.icon}</span>
+                {a._type.Icon && <a._type.Icon className="w-6 h-6 flex-shrink-0" />}
                 <div>
                   <div className="text-xs uppercase tracking-wide text-white/70">
                     {a._type.label}
@@ -276,7 +282,7 @@ export default function AlertNotifier({
             onClick={() => navigate("/mis-alertas")}
             className="flex items-center gap-2 rounded-full bg-red-500 px-4 py-2 text-white shadow-lg hover:bg-red-600"
           >
-            <span className="text-lg">🔔</span>
+            <Bell className="w-5 h-5" />
             <span className="font-bold">{stats.unread}</span>
             <span className="text-sm">sin leer</span>
           </button>
