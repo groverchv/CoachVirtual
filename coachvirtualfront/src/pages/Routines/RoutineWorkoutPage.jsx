@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import YogaPoseDetector from '../Yoga/YogaPoseDetector';
 import VoiceFeedbackOverlay from '../../components/ui/VoiceFeedbackOverlay';
-import { speak, stopSpeaking, initVoiceService, speakNumber } from '../../services/IA/voiceFeedbackService';
+import { speak, stopSpeaking, initVoiceService, speakNumber, isSpeakingNow } from '../../services/IA/voiceFeedbackService';
 import { getExerciseDescription, generateExerciseExplanation } from '../../services/IA/exerciseDescriptions';
 import { getEjercicioById } from '../../services/IA/ejerciciosDataset';
 import { createRepCounter } from '../../services/IA/exerciseRepCounter';
@@ -58,11 +58,13 @@ export default function RoutineWorkoutPage() {
     const [setCount, setSetCount] = useState(1);
     const [restTimer, setRestTimer] = useState(0);
     const [exerciseTimer, setExerciseTimer] = useState(0);
+    const [holdTime, setHoldTime] = useState(0); // Para ejercicios isométricos/estiramientos
 
     // Pose detection
     const [isCorrect, setIsCorrect] = useState(false);
     const [corrections, setCorrections] = useState([]);
     const [showDemo, setShowDemo] = useState(false);
+    const [showVoiceCommandsModal, setShowVoiceCommandsModal] = useState(false); // Modal de comandos de voz
 
 
     // Refs
@@ -73,6 +75,9 @@ export default function RoutineWorkoutPage() {
     const lastCorrectionTimeRef = useRef(0);
     const explanationDoneRef = useRef(false);
     const repCounterRef = useRef(null); // Exercise-specific rep counter
+    const sessionCorrectionsRef = useRef([]); // Correcciones hechas durante el ejercicio
+    const lastMovementTimeRef = useRef(Date.now()); // Para detectar inactividad
+    const lastPoseRef = useRef(null); // Última pose para comparar movimiento
 
     // Cargar datos de rutina
     useEffect(() => {
@@ -87,6 +92,7 @@ export default function RoutineWorkoutPage() {
                 ...getExerciseDescription(e.ejercicio_id || e.id),
                 targetReps: e.repeticiones || 12,
                 targetSets: e.series || 3,
+                targetTime: e.tiempo || 30, // Tiempo objetivo para estiramientos (segundos)
                 uniqueKey: `exercise-${index}-${e.ejercicio_id || e.id || Date.now()}`,
             }));
             setExercises(exerciseList);
@@ -137,7 +143,7 @@ export default function RoutineWorkoutPage() {
     // Obtener ejercicio actual - DEFINIR ANTES de usarlo en useEffects
     const currentExercise = exercises[currentExerciseIndex] || null;
 
-    // Timer de descanso - cuenta regresiva con visualización
+    // Timer de descanso - cuenta regresiva con visualización y voz sincronizada
     useEffect(() => {
         // Solo iniciar cuando entramos al estado REST
         if (workoutState === WORKOUT_STATES.REST) {
@@ -147,25 +153,35 @@ export default function RoutineWorkoutPage() {
             }
 
             const descansoTime = currentExercise?.descanso || 60;
+            let currentTime = restTimer; // Usar el tiempo actual
 
             restIntervalRef.current = setInterval(() => {
-                setRestTimer(prev => {
-                    if (prev <= 1) {
-                        clearInterval(restIntervalRef.current);
-                        // Pequeño delay antes de continuar para que se vea el 0
-                        setTimeout(() => handleRestComplete(), 500);
-                        return 0;
-                    }
-                    // Countdown voz en los últimos 5 segundos
-                    if (prev <= 6 && prev > 1 && voiceEnabled) {
-                        speakNumber(prev - 1);
-                    }
-                    // Anuncio de mitad de descanso
-                    if (prev === Math.floor(descansoTime / 2) && voiceEnabled) {
-                        speak('Mitad del descanso', 'info');
-                    }
-                    return prev - 1;
-                });
+                currentTime = currentTime - 1;
+
+                // Countdown voz en los últimos 5 segundos - SINCRONIZADO
+                if (currentTime <= 5 && currentTime > 0 && voiceEnabled) {
+                    speakNumber(currentTime);
+                }
+
+                // Actualizar el estado visual
+                setRestTimer(currentTime);
+
+                if (currentTime <= 0) {
+                    clearInterval(restIntervalRef.current);
+                    // Pequeño delay antes de continuar para que se vea el 0
+                    setTimeout(() => handleRestComplete(), 500);
+                    return;
+                }
+
+                // Anuncio de mitad de descanso
+                if (currentTime === Math.floor(descansoTime / 2) && voiceEnabled) {
+                    speak('Mitad del descanso', 'info');
+                }
+
+                // Aviso de 10 segundos
+                if (currentTime === 10 && voiceEnabled) {
+                    speak('¡10 SEGUNDOS! ¡PREPÁRATE!', 'info');
+                }
             }, 1000);
         } else {
             // Limpiar cuando no estamos en REST
@@ -224,6 +240,17 @@ export default function RoutineWorkoutPage() {
             }
         }, tiempoEstimado);
     }, [currentExercise, voiceEnabled]);
+
+    // Omitir explicación y comenzar ejercicio inmediatamente
+    const skipExplanation = useCallback(() => {
+        stopSpeaking(); // Detener la voz
+        setShowDemo(false);
+        explanationDoneRef.current = true;
+        setWorkoutState(WORKOUT_STATES.ACTIVE);
+        if (voiceEnabled) {
+            speak('¡VAMOS! ¡A ENTRENAR!', 'encouragement', true);
+        }
+    }, [voiceEnabled]);
 
     // Manejar comando de voz
     const handleVoiceCommand = useCallback((command) => {
@@ -299,19 +326,24 @@ export default function RoutineWorkoutPage() {
         }
     }, [setCount, currentExercise, voiceEnabled]);
 
-    // Completar una repetición - con feedback de voz dinámico
+    // Completar una repetición - con feedback de voz SINCRONIZADO
     const handleRepComplete = useCallback(() => {
         const newCount = repCount + 1;
+
+        // PRIMERO actualizar el contador visual
         setRepCount(newCount);
 
         const targetReps = currentExercise?.targetReps || 12;
         const targetSets = currentExercise?.targetSets || 3;
 
         if (voiceEnabled) {
-            // Siempre decir el número de la rep
-            speakNumber(newCount);
+            // DELAY para sincronizar con la UI - la voz viene DESPUÉS del número visual
+            setTimeout(() => {
+                // Decir el número de la rep
+                speakNumber(newCount);
+            }, 250); // 250ms para que la UI se actualice primero
 
-            // Mensajes motivacionales según progreso
+            // Mensajes motivacionales con delay mayor para no interrumpir el conteo
             setTimeout(() => {
                 // Mitad de las reps
                 if (newCount === Math.floor(targetReps / 2)) {
@@ -335,7 +367,7 @@ export default function RoutineWorkoutPage() {
                     ];
                     speak(messages[Math.floor(Math.random() * messages.length)], 'encouragement');
                 }
-            }, 600);
+            }, 800); // 800ms para dar tiempo al número de decirse
         }
 
         // Verificar si completó las reps de la serie
@@ -357,14 +389,28 @@ export default function RoutineWorkoutPage() {
         }
     }, [repCount, currentExercise, voiceEnabled, setCount]);
 
-    // Iniciar descanso
+    // Iniciar descanso - con resumen de correcciones
     const startRest = useCallback(() => {
         setWorkoutState(WORKOUT_STATES.REST);
         const restTime = currentExercise?.descanso || 60;
         setRestTimer(restTime);
 
         if (voiceEnabled) {
-            speak(`Descansa ${restTime} segundos`, 'info');
+            speak(`¡BUEN TRABAJO! Descansa ${restTime} segundos`, 'info');
+
+            // Dar resumen de correcciones al iniciar descanso
+            const uniqueCorrections = [...new Set(sessionCorrectionsRef.current)];
+            if (uniqueCorrections.length > 0) {
+                setTimeout(() => {
+                    speak(`Recuerda para la próxima serie: ${uniqueCorrections.slice(0, 2).join('. ')}`, 'info');
+                }, 3000);
+            } else {
+                setTimeout(() => {
+                    speak('¡EXCELENTE TÉCNICA! Mantuviste buena forma', 'encouragement');
+                }, 3000);
+            }
+            // Limpiar correcciones para siguiente serie
+            sessionCorrectionsRef.current = [];
         }
     }, [currentExercise, voiceEnabled]);
 
@@ -395,10 +441,13 @@ export default function RoutineWorkoutPage() {
                 speak('Pasamos al siguiente ejercicio', 'info');
             }
         } else {
-            // Rutina completada
+            // Rutina completada - FELICITAR Y ANIMAR
             setWorkoutState(WORKOUT_STATES.COMPLETED);
             if (voiceEnabled) {
-                speak('¡Felicitaciones! Has completado toda la rutina. ¡Excelente trabajo!', 'encouragement', true);
+                speak('¡INCREÍBLE! ¡HAS COMPLETADO TODA LA RUTINA!', 'encouragement', true);
+                setTimeout(() => {
+                    speak('¡ERES UNA MÁQUINA! Descansa bien. ¡Nos vemos en la próxima sesión! ¡SIGUE ASÍ!', 'encouragement', true);
+                }, 4000);
             }
         }
     }, [currentExerciseIndex, exercises.length, voiceEnabled, currentExercise]);
@@ -424,6 +473,7 @@ export default function RoutineWorkoutPage() {
             startListening();
             setMicEnabled(true);
             if (voiceEnabled) {
+                setShowVoiceCommandsModal(true);
                 speak('Micrófono activado. Puedo escucharte.', 'info');
             }
         }
@@ -446,10 +496,54 @@ export default function RoutineWorkoutPage() {
         const rightShoulder = landmarks[12];
         const leftHip = landmarks[23];
         const rightHip = landmarks[24];
+        const leftAnkle = landmarks[27];
+        const rightAnkle = landmarks[28];
+        const nose = landmarks[0];
 
         if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) {
             setIsCorrect(false);
-            setCorrections([{ type: 'warning', message: 'Asegúrate de que tu cuerpo sea visible' }]);
+            setCorrections([{ type: 'warning', message: '¡MUÉSTRAME TODO TU CUERPO!' }]);
+            if (now - lastCorrectionTimeRef.current > 4000 && voiceEnabled && !isSpeakingNow()) {
+                speak('¡MUÉSTRAME TODO TU CUERPO! ¡RETROCEDE!', 'correction', true);
+                lastCorrectionTimeRef.current = now;
+            }
+            return;
+        }
+
+        // ===== DETECCIÓN DE DISTANCIA DE CÁMARA =====
+        const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
+        const bodyHeight = nose && leftAnkle ? Math.abs(leftAnkle.y - nose.y) : 0.5;
+
+        // Demasiado cerca (cuerpo ocupa más del 70% del ancho)
+        if (shoulderWidth > 0.5) {
+            setIsCorrect(false);
+            setCorrections([{ type: 'warning', message: '¡ALÉJATE DE LA CÁMARA!' }]);
+            if (now - lastCorrectionTimeRef.current > 4000 && voiceEnabled && !isSpeakingNow()) {
+                speak('¡ALÉJATE DE LA CÁMARA! ¡NECESITO VER TODO TU CUERPO!', 'correction', true);
+                lastCorrectionTimeRef.current = now;
+            }
+            return;
+        }
+
+        // Demasiado lejos (cuerpo ocupa menos del 15% del ancho)
+        if (shoulderWidth < 0.08) {
+            setIsCorrect(false);
+            setCorrections([{ type: 'warning', message: '¡ACÉRCATE A LA CÁMARA!' }]);
+            if (now - lastCorrectionTimeRef.current > 4000 && voiceEnabled && !isSpeakingNow()) {
+                speak('¡ACÉRCATE A LA CÁMARA! ¡NO TE VEO BIEN!', 'correction', true);
+                lastCorrectionTimeRef.current = now;
+            }
+            return;
+        }
+
+        // Pies no visibles (importante para ejercicios de cuerpo completo)
+        if ((!leftAnkle || !rightAnkle) && currentExercise?.tipo !== 'Brazos') {
+            setIsCorrect(false);
+            setCorrections([{ type: 'warning', message: '¡MUESTRA TUS PIES!' }]);
+            if (now - lastCorrectionTimeRef.current > 5000 && voiceEnabled && !isSpeakingNow()) {
+                speak('¡MUESTRA TUS PIES! ¡NECESITO VER TUS PIERNAS!', 'correction', true);
+                lastCorrectionTimeRef.current = now;
+            }
             return;
         }
 
@@ -462,10 +556,17 @@ export default function RoutineWorkoutPage() {
         if (result.errors && result.errors.length > 0) {
             setCorrections(result.errors);
 
-            // Dar feedback de voz de corrección con cooldown de 2.5 segundos
-            if (now - lastCorrectionTimeRef.current > 2500 && voiceEnabled) {
-                // Decir la corrección en voz alta
-                speak(result.errors[0].message, 'correction', true);
+            // Guardar correcciones para resumen durante descanso
+            const correctionMsg = result.errors[0]?.message || result.errors[0];
+            if (correctionMsg && !sessionCorrectionsRef.current.includes(correctionMsg)) {
+                sessionCorrectionsRef.current.push(correctionMsg);
+            }
+
+            // Dar feedback de voz de corrección - SIEMPRE decir la corrección si pasó cooldown
+            // Solo hablar si NO estamos ya hablando (evitar cruces de voz)
+            if (now - lastCorrectionTimeRef.current > 3000 && voiceEnabled && !isSpeakingNow()) {
+                // Decir la corrección en voz alta - ESTRICTO
+                speak(correctionMsg, 'correction', true);
                 lastCorrectionTimeRef.current = now;
             }
         } else if (result.isCorrect) {
@@ -479,18 +580,18 @@ export default function RoutineWorkoutPage() {
                 neutral: 'Posición inicial',
                 rotated: 'Rota',
             };
-            const phaseMessage = phaseMessages[result.phase] || 'Buena forma';
+            const phaseMessage = phaseMessages[result.phase] || '¡Buena forma!';
             setCorrections([{ type: 'success', message: phaseMessage }]);
 
-            // Dar ánimo ocasional cuando la forma es correcta (cada 5 segundos)
-            if (now - lastCorrectionTimeRef.current > 5000 && voiceEnabled) {
+            // Dar ánimo SOLO si la voz NO está ocupada y pasaron 8 segundos
+            if (now - lastCorrectionTimeRef.current > 8000 && voiceEnabled && !isSpeakingNow()) {
                 const encouragements = [
-                    '¡Bien! Sigue así',
-                    '¡Excelente técnica!',
-                    '¡Eso es! ¡Vamos!',
-                    '¡Muy bien! No pares',
-                    '¡Perfecto!',
-                    '¡Así se hace!',
+                    '¡BIEN! ¡SIGUE ASÍ!',
+                    '¡EXCELENTE TÉCNICA!',
+                    '¡ESO ES! ¡VAMOS!',
+                    '¡MUY BIEN! ¡NO PARES!',
+                    '¡PERFECTO!',
+                    '¡ASÍ SE HACE!',
                 ];
                 const randomMessage = encouragements[Math.floor(Math.random() * encouragements.length)];
                 speak(randomMessage, 'encouragement');
@@ -499,15 +600,75 @@ export default function RoutineWorkoutPage() {
         }
 
         // Si se contó una repetición - SOLO si la forma es correcta
+        // DEBOUNCE de 1.5 segundos para evitar conteo rápido
         if (result.counted && result.isCorrect) {
-            // Solo contar si pasó al menos 1 segundo desde la última rep
-            if (now - lastRepTimeRef.current > 1000) {
+            if (now - lastRepTimeRef.current > 3000) {
                 lastRepTimeRef.current = now;
                 handleRepComplete();
             }
         }
 
-    }, [currentExercise, workoutState, isPaused, handleRepComplete, voiceEnabled]);
+        // Para ejercicios ISOMÉTRICOS/ESTIRAMIENTOS - contar tiempo manteniendo postura
+        if (result.holdTime !== undefined && result.holdTime > 0) {
+            const newHoldTime = Math.floor(result.holdTime);
+            setHoldTime(newHoldTime);
+
+            const targetTime = currentExercise?.targetTime || 30;
+
+            // Feedback de voz para estiramientos en momentos clave
+            if (voiceEnabled && !isSpeakingNow()) {
+                if (newHoldTime === Math.floor(targetTime / 2)) {
+                    speak('¡MITAD DE TIEMPO! ¡AGUANTA!', 'encouragement', true);
+                } else if (newHoldTime === targetTime - 5 && targetTime > 10) {
+                    speak('¡5 SEGUNDOS MÁS!', 'encouragement', true);
+                }
+            }
+
+            // Completar serie cuando alcanza el tiempo objetivo
+            if (newHoldTime >= targetTime) {
+                if (voiceEnabled) {
+                    speak('¡EXCELENTE! ¡TIEMPO COMPLETADO!', 'encouragement', true);
+                }
+                setHoldTime(0);
+                handleSetComplete();
+            }
+        } else if (result.holdTime === 0) {
+            // Reset holdTime cuando pierde la postura
+            setHoldTime(0);
+        }
+
+        // ===== DETECCIÓN DE INACTIVIDAD =====
+        // Comparar con pose anterior para detectar movimiento
+        const currentPose = {
+            shoulderY: (leftShoulder.y + rightShoulder.y) / 2,
+            hipY: (leftHip.y + rightHip.y) / 2,
+        };
+
+        if (lastPoseRef.current) {
+            const movement = Math.abs(currentPose.shoulderY - lastPoseRef.current.shoulderY) +
+                Math.abs(currentPose.hipY - lastPoseRef.current.hipY);
+
+            // Si hay movimiento significativo (umbral 0.02), actualizar tiempo
+            if (movement > 0.02) {
+                lastMovementTimeRef.current = now;
+            }
+        }
+        lastPoseRef.current = currentPose;
+
+        // Si no hay movimiento por más de 10 segundos, alentar
+        const idleTime = now - lastMovementTimeRef.current;
+        if (idleTime > 10000 && voiceEnabled && !isSpeakingNow()) {
+            const idleMessages = [
+                '¡VAMOS! ¡NO TE DETENGAS!',
+                '¡CONTINÚA! ¡TÚ PUEDES!',
+                '¡MUÉVETE! ¡NO TE RINDAS!',
+                '¡SIGUE ADELANTE! ¡FUERZA!',
+            ];
+            speak(idleMessages[Math.floor(Math.random() * idleMessages.length)], 'encouragement', true);
+            lastMovementTimeRef.current = now; // Reset para no repetir inmediatamente
+        }
+
+    }, [currentExercise, workoutState, isPaused, handleRepComplete, handleSetComplete, voiceEnabled]);
 
     // Pantalla de carga o sin ejercicios
     if (!routineData) {
@@ -588,7 +749,7 @@ export default function RoutineWorkoutPage() {
                         {/* Toggle Voz */}
                         <button
                             onClick={() => setVoiceEnabled(!voiceEnabled)}
-                            className={`p-2 rounded-lg ${voiceEnabled ? 'bg-green-600' : 'bg-gray-600'}`}
+                            className={`p - 2 rounded - lg ${voiceEnabled ? 'bg-green-600' : 'bg-gray-600'} `}
                         >
                             {voiceEnabled ? <Volume2 className="w-5 h-5 text-white" /> : <VolumeX className="w-5 h-5 text-white" />}
                         </button>
@@ -598,19 +759,57 @@ export default function RoutineWorkoutPage() {
                             <button
                                 onClick={toggleMic}
                                 className={`p-2 rounded-lg ${micEnabled ? 'bg-blue-600 animate-pulse' : 'bg-gray-600'}`}
+                                title={micEnabled ? 'Desactivar micrófono' : 'Activar micrófono'}
                             >
                                 {micEnabled ? <Mic className="w-5 h-5 text-white" /> : <MicOff className="w-5 h-5 text-white" />}
                             </button>
                         )}
+
+                        {/* Toggle Voice Commands Modal */}
+                        <button
+                            onClick={() => setShowVoiceCommandsModal(!showVoiceCommandsModal)}
+                            className={`p-2 rounded-lg ${showVoiceCommandsModal ? 'bg-purple-600' : 'bg-gray-600'}`}
+                            title="Ver comandos de voz"
+                        >
+                            <Info className="w-5 h-5 text-white" />
+                        </button>
                     </div>
                 </div>
             </div>
+
+            {/* Modal de comandos de voz */}
+            {showVoiceCommandsModal && (
+                <div className="fixed bottom-20 right-4 z-50 bg-slate-800 rounded-xl p-4 shadow-2xl border border-blue-500 max-w-xs">
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-white font-bold flex items-center gap-2">
+                            <Mic className="w-5 h-5 text-blue-400" />
+                            Comandos de Voz
+                        </h3>
+                        <button
+                            onClick={() => setShowVoiceCommandsModal(false)}
+                            className="text-gray-400 hover:text-white text-xl"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <ul className="space-y-2 text-sm">
+                        <li className="text-green-400">🎯 "Muéstrame el ejercicio"</li>
+                        <li className="text-blue-300">📖 "Explícame el ejercicio"</li>
+                        <li className="text-yellow-300">⏭️ "Siguiente" / "Anterior"</li>
+                        <li className="text-orange-300">⏸️ "Pausa" / "Continúa"</li>
+                        <li className="text-purple-300">😴 "Descanso"</li>
+                        <li className="text-pink-300">🔄 "Repite"</li>
+                        <li className="text-gray-300">❓ "Ayuda"</li>
+                    </ul>
+                    <p className="text-xs text-gray-400 mt-3 text-center">Presiona ✕ para ocultar</p>
+                </div>
+            )}
 
             {/* Progress bar */}
             <div className="h-1 bg-gray-700">
                 <div
                     className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
-                    style={{ width: `${((currentExerciseIndex + 1) / exercises.length) * 100}%` }}
+                    style={{ width: `${((currentExerciseIndex + 1) / exercises.length) * 100}% ` }}
                 />
             </div>
 
@@ -629,7 +828,7 @@ export default function RoutineWorkoutPage() {
                                 <div className="w-full bg-blue-900/50 rounded-full h-4 mb-4">
                                     <div
                                         className="bg-white h-4 rounded-full transition-all duration-1000"
-                                        style={{ width: `${(restTimer / (currentExercise?.descanso || 60)) * 100}%` }}
+                                        style={{ width: `${(restTimer / (currentExercise?.descanso || 60)) * 100}% ` }}
                                     />
                                 </div>
                                 <p className="text-blue-200 mb-4">
@@ -647,11 +846,17 @@ export default function RoutineWorkoutPage() {
                         {/* Demo del ejercicio */}
                         {showDemo && currentExercise?.url && (
                             <div className="bg-slate-800 rounded-xl overflow-hidden">
-                                <div className="p-4 bg-slate-700">
+                                <div className="p-4 bg-slate-700 flex justify-between items-center">
                                     <h3 className="text-white font-bold flex items-center gap-2">
                                         <Info className="w-5 h-5" />
                                         Demostración del ejercicio
                                     </h3>
+                                    <button
+                                        onClick={skipExplanation}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+                                    >
+                                        ⏭️ Omitir
+                                    </button>
                                 </div>
                                 <img
                                     src={currentExercise.url}
@@ -710,7 +915,7 @@ export default function RoutineWorkoutPage() {
 
                             <button
                                 onClick={() => setIsPaused(!isPaused)}
-                                className={`p-4 rounded-full ${isPaused ? 'bg-green-600' : 'bg-yellow-600'}`}
+                                className={`p - 4 rounded - full ${isPaused ? 'bg-green-600' : 'bg-yellow-600'} `}
                             >
                                 {isPaused ? <Play className="w-8 h-8 text-white" /> : <Pause className="w-8 h-8 text-white" />}
                             </button>

@@ -16,8 +16,8 @@ export const REP_COUNTING_CONFIGS = {
             // Ángulo del codo para determinar fase
             primaryAngle: {
                 joints: ['shoulder', 'elbow', 'wrist'],
-                upThreshold: 160,    // Brazos casi extendidos
-                downThreshold: 90,   // Codos a 90 grados
+                upThreshold: 165,    // Brazos completamente extendidos
+                downThreshold: 70,   // Codos bien doblados - movimiento completo
             },
         },
         validation: {
@@ -44,8 +44,8 @@ export const REP_COUNTING_CONFIGS = {
         detection: {
             primaryAngle: {
                 joints: ['hip', 'knee', 'ankle'],
-                upThreshold: 160,    // De pie
-                downThreshold: 90,   // Sentadilla profunda
+                upThreshold: 165,    // Completamente de pie
+                downThreshold: 80,   // Sentadilla profunda - movimiento completo
             },
         },
         validation: {
@@ -75,8 +75,8 @@ export const REP_COUNTING_CONFIGS = {
         detection: {
             primaryAngle: {
                 joints: ['shoulder', 'elbow', 'wrist'],
-                upThreshold: 45,     // Contracción máxima
-                downThreshold: 150,  // Brazo extendido
+                upThreshold: 35,     // Contracción máxima completa
+                downThreshold: 160,  // Brazo completamente extendido
             },
         },
         validation: {
@@ -379,12 +379,12 @@ export const REP_COUNTING_CONFIGS = {
         name: 'Ejercicio',
         phases: ['down', 'up'],
         detection: {
-            // Detecta cualquier movimiento significativo
+            // Detecta SOLO movimiento MUY significativo
             anyMovement: {
-                wristThreshold: 0.04,   // Movimiento de muñeca
-                elbowThreshold: 0.05,   // Movimiento de codo
-                shoulderThreshold: 0.05, // Movimiento de hombro
-                verticalThreshold: 0.08, // Movimiento vertical del torso
+                wristThreshold: 0.12,   // Antes 0.04 - ahora 3x más estricto
+                elbowThreshold: 0.12,   // Antes 0.05 - ahora 2.4x más estricto
+                shoulderThreshold: 0.12, // Antes 0.05 - ahora 2.4x más estricto
+                verticalThreshold: 0.15, // Antes 0.08 - ahora casi 2x más estricto
             },
         },
         validation: {},
@@ -655,10 +655,20 @@ export class ExerciseRepCounter {
 
     /**
      * Determinar la fase actual del movimiento
+     * REQUIERE movimiento significativo para cambiar de fase
      */
     _determinePhase(angle) {
         const detection = this.config.detection;
         const phases = this.config.phases;
+
+        // Histéresis: requiere movimiento mínimo de 10 grados para cambiar fase
+        const HYSTERESIS = 10;
+
+        // Para detectar movimiento REAL, verificar que el ángulo cambió significativamente
+        const angleChange = Math.abs(angle - (this.lastStableAngle || angle));
+        if (angleChange > 15) {
+            this.lastStableAngle = angle;
+        }
 
         // Ángulo principal (flexiones, sentadillas, curls, etc.)
         if (detection.primaryAngle) {
@@ -666,28 +676,29 @@ export class ExerciseRepCounter {
 
             // Para curl, remo (contracted/extended)
             if (contractedThreshold !== undefined) {
-                if (angle <= contractedThreshold) return 'contracted';
-                if (angle >= extendedThreshold) return 'extended';
+                // Solo cambiar si superó el umbral por el margen de histéresis
+                if (angle <= contractedThreshold - HYSTERESIS) return 'contracted';
+                if (angle >= extendedThreshold + HYSTERESIS) return 'extended';
                 return this.currentPhase;
             }
 
-            // Para flexiones, sentadillas (up/down)
-            if (angle >= upThreshold) return 'up';
-            if (angle <= downThreshold) return 'down';
+            // Para flexiones, sentadillas (up/down) - con histéresis
+            if (angle >= upThreshold + HYSTERESIS) return 'up';
+            if (angle <= downThreshold - HYSTERESIS) return 'down';
         }
 
         // Movimiento de muñeca (rotaciones)
         if (detection.wristMovement) {
-            // angle ya viene como 170 (movimiento) o 20 (quieto) de _calculatePrimaryAngle
-            if (angle >= 100) return phases[1] || 'rotated';  // Hay movimiento
-            return phases[0] || 'neutral';  // Quieto
+            if (angle >= 140) return phases[1] || 'rotated';  // Mayor umbral
+            if (angle <= 40) return phases[0] || 'neutral';
+            return this.currentPhase;
         }
 
-        // Cualquier movimiento (genérico)
+        // Cualquier movimiento (genérico) - MUCHO MÁS ESTRICTO
         if (detection.anyMovement) {
-            // angle viene de _calculatePrimaryAngle basado en movimiento total
-            if (angle >= 100) return 'up';
-            if (angle <= 60) return 'down';
+            // Requiere movimiento MUY grande para detectar fase
+            if (angle >= 150) return 'up';   // Antes era 100
+            if (angle <= 30) return 'down';  // Antes era 60
             return this.currentPhase;
         }
 

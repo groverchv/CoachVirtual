@@ -30,6 +30,7 @@ export default function UniversalExerciseDetector({
     const streamRef = useRef(null);
     const repStateRef = useRef('idle'); // idle, down, up
     const lastCorrectionTimeRef = useRef(0);
+    const lastRepTimeRef = useRef(0); // Para debounce de repeticiones
 
     // Cargar info del ejercicio
     useEffect(() => {
@@ -215,23 +216,32 @@ export default function UniversalExerciseDetector({
             if (!hip || !shoulder) return;
 
             const verticalRatio = hip.y - shoulder.y;
+            const now = Date.now();
 
-            // Estado de la repetición
+            // Estado de la repetición con DEBOUNCE de 1.5 segundos
             if (repStateRef.current === 'idle' && verticalRatio < 0.3) {
                 repStateRef.current = 'down';
             } else if (repStateRef.current === 'down' && verticalRatio > 0.35) {
-                repStateRef.current = 'up';
-                setRepCount(prev => {
-                    const newCount = prev + 1;
-                    if (enableVoice) {
-                        speak(newCount.toString(), true);
-                    }
-                    if (onRepComplete) {
-                        onRepComplete(newCount);
-                    }
-                    return newCount;
-                });
-                repStateRef.current = 'idle';
+                // Solo contar si pasó el debounce  
+                if (!lastRepTimeRef.current || now - lastRepTimeRef.current > 1500) {
+                    repStateRef.current = 'up';
+                    setRepCount(prev => {
+                        const newCount = prev + 1;
+
+                        // DELAY de 250ms para sincronizar voz con UI
+                        if (enableVoice) {
+                            setTimeout(() => {
+                                speak(newCount.toString(), true);
+                            }, 250);
+                        }
+                        if (onRepComplete) {
+                            onRepComplete(newCount);
+                        }
+                        return newCount;
+                    });
+                    repStateRef.current = 'idle';
+                    lastRepTimeRef.current = now;
+                }
             }
         };
 

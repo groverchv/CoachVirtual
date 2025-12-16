@@ -206,7 +206,7 @@ export default function CurlBicepsSentado() {
                     {!metrics.isElbowStable && (
                         <div className="absolute inset-0 flex items-center justify-center bg-amber-500/20 pointer-events-none animate-pulse">
                             <div className="bg-amber-600 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-lg border-2 border-white">
-                                📍 FIJA EL CODO
+                                FIJA EL CODO
                             </div>
                         </div>
                     )}

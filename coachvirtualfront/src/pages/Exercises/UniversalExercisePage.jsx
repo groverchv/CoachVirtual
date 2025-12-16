@@ -213,13 +213,18 @@ export default function UniversalExercisePage() {
         }
     }, [setCount, voiceEnabled]);
 
-    // Manejar repetición completada
+    // Manejar repetición completada - VOZ SINCRONIZADA
     const handleRepComplete = useCallback(() => {
         const newCount = repCount + 1;
+
+        // PRIMERO actualizar el contador visual
         setRepCount(newCount);
 
+        // DELAY para sincronizar voz con UI
         if (voiceEnabled) {
-            speakNumber(newCount);
+            setTimeout(() => {
+                speakNumber(newCount);
+            }, 250); // 250ms para que la UI se actualice primero
         }
 
         const targetReps = exerciseDesc?.reps || 12;
@@ -370,6 +375,7 @@ export default function UniversalExercisePage() {
             } else if (repStateRef.current === 'down' && verticalRatio > 0.3) {
                 repStateRef.current = 'up';
             } else if (repStateRef.current === 'up' && verticalRatio < 0.25) {
+                // DEBOUNCE de 1.5 segundos para evitar conteo rápido
                 if (now - lastRepTimeRef.current > 1500) {
                     // ¡Repetición completada correctamente!
                     handleRepComplete();

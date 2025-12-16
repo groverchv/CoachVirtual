@@ -11,10 +11,10 @@ const CONFIG = {
     volume: 1.0,
     cooldown: 2500,    // Respuesta más rápida
     priority: {
-        critical: 0,   // Errores de postura peligrosos
-        correction: 1, // Correcciones normales
-        encouragement: 2, // Ánimo
-        count: 3,      // Conteo de repeticiones
+        count: 0,      // CONTEO - MÁXIMA PRIORIDAD - NUNCA SE INTERRUMPE
+        critical: 1,   // Errores de postura peligrosos
+        correction: 2, // Correcciones normales
+        encouragement: 3, // Ánimo
         info: 4,       // Información general
     }
 };
@@ -28,88 +28,120 @@ let lastMessageTime = {};
 let onSpeakingChange = null;
 let voiceInstance = null;
 
-// Mensajes predefinidos - ESTILO ENTRENADOR MOTIVADOR
+// Mensajes predefinidos - ESTILO ENTRENADOR ESTRICTO Y MOTIVADOR
 export const VOICE_MESSAGES = {
     // Inicio de ejercicio
     start: {
-        generic: '¡Vamos! ¡A darle con todo!',
-        squat: '¡Posición! Pies firmes, espalda recta. ¡Ahora!',
-        pushup: '¡Al suelo! Posición de plancha, manos bien puestas.',
-        plank: '¡Como una tabla! Cuerpo recto, sin excusas.',
-        curl: '¡Codos pegados! Controla cada repetición.',
-        stretch: 'Respira hondo y estira. ¡Tú puedes!',
+        generic: '¡VAMOS! ¡A DARLE CON TODO! ¡SIN EXCUSAS!',
+        squat: '¡POSICIÓN! Pies firmes, espalda recta. ¡AHORA!',
+        pushup: '¡AL SUELO! Posición de plancha, manos bien puestas. ¡YA!',
+        plank: '¡COMO UNA TABLA! Cuerpo recto, sin excusas.',
+        curl: '¡CODOS PEGADOS! Controla cada repetición.',
+        stretch: '¡RESPIRA HONDO! Estira y mantén. ¡TÚ PUEDES!',
     },
 
-    // Correcciones de postura - DIRECTO Y FIRME
+    // Correcciones de postura - DIRECTO, FIRME, ESTRICTO
     corrections: {
+        // DISTANCIA DE CÁMARA
+        tooClose: '¡ALÉJATE DE LA CÁMARA! ¡NECESITO VER TODO TU CUERPO!',
+        tooFar: '¡ACÉRCATE A LA CÁMARA! ¡NO TE VEO BIEN!',
+        bodyNotVisible: '¡MUÉSTRAME TODO TU CUERPO! ¡RETROCEDE!',
+        feetNotVisible: '¡MUESTRA TUS PIES! ¡NECESITO VER TUS PIERNAS!',
+
         // Espalda
-        backBent: '¡Espalda recta! ¡Vamos!',
-        backArched: '¡No arquees la espalda!',
-        shouldersUneven: '¡Hombros nivelados!',
+        backBent: '¡ESPALDA RECTA! ¡AHORA!',
+        backArched: '¡NO ARQUEES! ¡CONTROLA ESA ESPALDA!',
+        shouldersUneven: '¡HOMBROS NIVELADOS! ¡YA!',
 
         // Caderas
-        hipsTooLow: '¡Sube esa cadera!',
-        hipsTooHigh: '¡Baja la cadera!',
-        hipsUneven: '¡Caderas firmes y niveladas!',
+        hipsTooLow: '¡SUBE ESA CADERA! ¡SIN EXCUSAS!',
+        hipsTooHigh: '¡BAJA LA CADERA! ¡CONTROLA!',
+        hipsUneven: '¡CADERAS FIRMES! ¡ESTABILIZA!',
 
         // Rodillas
-        kneesPastToes: '¡Rodillas atrás! No pases los pies.',
-        kneesNotBent: '¡Más flexión de rodillas!',
-        kneesTooWide: '¡Acerca las rodillas!',
+        kneesPastToes: '¡RODILLAS ATRÁS! ¡NO PASES LOS PIES!',
+        kneesNotBent: '¡MÁS FLEXIÓN! ¡BAJA MÁS!',
+        kneesTooWide: '¡ACERCA LAS RODILLAS! ¡CONTROLA!',
+        kneesTooNarrow: '¡SEPARA LAS RODILLAS! ¡ABRE!',
 
         // Brazos
-        elbowsFlared: '¡Codos al cuerpo!',
-        armsNotStraight: '¡Brazos rectos!',
-        wristsNotAligned: '¡Muñecas alineadas!',
+        elbowsFlared: '¡CODOS AL CUERPO! ¡PEGADOS!',
+        armsNotStraight: '¡BRAZOS RECTOS! ¡EXTIENDE!',
+        wristsNotAligned: '¡MUÑECAS ALINEADAS!',
+        armsUp: '¡SUBE LOS BRAZOS! ¡ARRIBA!',
+        armsDown: '¡BAJA LOS BRAZOS! ¡CONTROLA!',
 
         // Cabeza y cuello
-        headForward: '¡Cabeza atrás!',
-        headTilted: '¡Cabeza recta!',
-        neckStrained: '¡Relaja el cuello!',
+        headForward: '¡CABEZA ATRÁS! ¡MIRADA AL FRENTE!',
+        headTilted: '¡CABEZA RECTA! ¡CONTROLA!',
+        neckStrained: '¡RELAJA EL CUELLO! ¡NO FUERCES!',
+
+        // Piernas y pies
+        feetTooWide: '¡JUNTA LOS PIES! ¡CONTROLA!',
+        feetTooNarrow: '¡SEPARA LOS PIES! ¡A LA ANCHURA DE HOMBROS!',
+        legsNotStraight: '¡PIERNAS RECTAS! ¡EXTIENDE!',
+        anklesBent: '¡TOBILLOS FIRMES! ¡ESTABILIZA!',
+
+        // Torso
+        leaningForward: '¡NO TE INCLINES! ¡CENTRO!',
+        leaningBack: '¡MANTÉN LA POSICIÓN! ¡FIRME!',
+        leaningSide: '¡NO TE INCLINES AL LADO! ¡CENTRO!',
+        torsoRotated: '¡TORSO AL FRENTE! ¡NO GIRES!',
 
         // General
-        leaningForward: '¡No te inclines!',
-        leaningBack: '¡Mantén la posición!',
-        offBalance: '¡Equilibrio! ¡Estabiliza!',
+        offBalance: '¡EQUILIBRIO! ¡ESTABILIZA YA!',
+        positionInitial: '¡POSICIÓN INICIAL! ¡PREPÁRATE!',
+        moveTooFast: '¡MÁS LENTO! ¡CONTROLA EL MOVIMIENTO!',
+        moveTooSlow: '¡MÁS RÁPIDO! ¡VAMOS!',
     },
 
     // Ánimo - ESTILO MOTIVADOR INTENSO
     encouragement: {
-        good: '¡Eso es! ¡Sigue así!',
-        perfect: '¡Perfecto! ¡Así se hace!',
-        almostThere: '¡Ya casi! ¡No pares!',
-        keepGoing: '¡Dale duro! ¡No aflojes!',
-        greatForm: '¡Excelente forma! ¡Mantén!',
-        halfwayThere: '¡Mitad del camino! ¡Vamos!',
-        lastRep: '¡Última! ¡Con todo!',
-        completed: '¡Completado! ¡Eres una máquina!',
+        good: '¡ESO ES! ¡ASÍ SE HACE!',
+        perfect: '¡PERFECTO! ¡ERES UNA MÁQUINA!',
+        almostThere: '¡YA CASI! ¡NO PARES AHORA!',
+        keepGoing: '¡DALE DURO! ¡NO AFLOJES!',
+        greatForm: '¡EXCELENTE FORMA! ¡MANTÉN!',
+        halfwayThere: '¡MITAD DEL CAMINO! ¡VAMOS!',
+        lastRep: '¡ÚLTIMA! ¡CON TODO LO QUE TIENES!',
+        completed: '¡COMPLETADO! ¡ERES IMPARABLE!',
+        tired: '¡SÉ QUE ESTÁS CANSADO! ¡PERO NO TE RINDAS!',
+        rest: '¡BUEN TRABAJO! DESCANSA. LO MERECES.',
     },
 
     // Conteo
     counting: {
-        one: 'Uno',
-        two: 'Dos',
-        three: 'Tres',
-        four: 'Cuatro',
-        five: 'Cinco',
-        six: 'Seis',
-        seven: 'Siete',
-        eight: 'Ocho',
-        nine: 'Nueve',
-        ten: 'Diez',
+        one: 'UNO',
+        two: 'DOS',
+        three: 'TRES',
+        four: 'CUATRO',
+        five: 'CINCO',
+        six: 'SEIS',
+        seven: 'SIETE',
+        eight: 'OCHO',
+        nine: 'NUEVE',
+        ten: 'DIEZ',
     },
 
-    // Instrucciones de fase - DIRECTAS
+    // Instrucciones de fase - DIRECTAS Y FUERTES
     phases: {
-        inhale: '¡Inhala!',
-        exhale: '¡Exhala!',
-        hold: '¡Mantén!',
-        relax: '¡Relaja!',
-        down: '¡Baja!',
-        up: '¡Sube!',
-        squeeze: '¡Aprieta!',
-        extend: '¡Extiende!',
-        bend: '¡Flexiona!',
+        inhale: '¡INHALA PROFUNDO!',
+        exhale: '¡EXHALA!',
+        hold: '¡MANTÉN LA POSICIÓN!',
+        relax: '¡RELAJA!',
+        down: '¡BAJA!',
+        up: '¡SUBE!',
+        squeeze: '¡APRIETA FUERTE!',
+        extend: '¡EXTIENDE!',
+        bend: '¡FLEXIONA!',
+    },
+
+    // Estiramientos - por tiempo
+    stretch: {
+        start: '¡ESTIRA Y MANTÉN! ¡RESPIRA!',
+        halfway: '¡MITAD DE TIEMPO! ¡AGUANTA!',
+        almostDone: '¡CASI LISTO! ¡5 SEGUNDOS MÁS!',
+        complete: '¡EXCELENTE ESTIRAMIENTO! ¡AHORA RELAJA!',
     },
 };
 

@@ -667,7 +667,7 @@ const Home = () => {
                             {rutina.categoria}
                           </span>
                           <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold">
-                            📍 {rutina.parte}
+                            {rutina.parte}
                           </span>
                         </div>
                       </div>

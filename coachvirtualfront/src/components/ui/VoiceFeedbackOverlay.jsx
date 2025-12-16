@@ -48,8 +48,8 @@ export default function VoiceFeedbackOverlay({
                 <button
                     onClick={() => onVoiceToggle?.(!voiceEnabled)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-full backdrop-blur-sm transition-all duration-300 ${voiceEnabled
-                            ? 'bg-green-500/90 text-white'
-                            : 'bg-gray-600/90 text-gray-300'
+                        ? 'bg-green-500/90 text-white'
+                        : 'bg-gray-600/90 text-gray-300'
                         }`}
                     title={voiceEnabled ? 'Desactivar voz' : 'Activar voz'}
                 >
@@ -86,63 +86,13 @@ export default function VoiceFeedbackOverlay({
                 )}
             </div>
 
-            {/* Panel de instrucción actual - parte superior central */}
-            {currentInstruction && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
-                    <div className={`px-6 py-3 rounded-xl backdrop-blur-md shadow-lg transition-all duration-300 ${isCorrect
-                            ? 'bg-green-500/90 text-white'
-                            : 'bg-yellow-500/90 text-black'
-                        }`}>
-                        <div className="flex items-center gap-3">
-                            {isCorrect ? (
-                                <CheckCircle className="w-6 h-6 flex-shrink-0" />
-                            ) : (
-                                <Info className="w-6 h-6 flex-shrink-0" />
-                            )}
-                            <span className="text-lg font-semibold">{currentInstruction}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Panel de correcciones - lado derecho */}
-            {corrections.length > 0 && (
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 max-w-xs">
-                    <div className="bg-red-500/95 backdrop-blur-sm rounded-xl p-4 shadow-xl">
-                        <div className="flex items-center gap-2 mb-3">
-                            <AlertCircle className="w-5 h-5 text-white" />
-                            <span className="text-white font-bold">Corrige tu postura</span>
-                        </div>
-                        <ul className="space-y-2">
-                            {corrections.slice(0, 3).map((correction, index) => (
-                                <li
-                                    key={index}
-                                    className="flex items-start gap-2 text-white text-sm"
-                                >
-                                    <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 text-xs">
-                                        {index + 1}
-                                    </span>
-                                    <span>{correction.message || correction}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            )}
 
-            {/* Contador de repeticiones - esquina superior derecha */}
-            <div className="absolute top-4 right-4 z-20">
-                <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl px-5 py-3 shadow-xl">
-                    <p className="text-blue-200 text-xs text-center mb-1">Repeticiones</p>
-                    <p className="text-4xl font-bold text-white text-center">{repCount}</p>
-                </div>
-            </div>
-
-            {/* Indicador de postura correcta - parte inferior */}
+            {/* INDICADOR ÚNICO DINÁMICO - Verde=Correcto, Rojo=Incorrecto */}
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20">
-                <div className={`flex items-center gap-3 px-6 py-3 rounded-full backdrop-blur-md shadow-lg transition-all duration-500 ${isCorrect
-                        ? 'bg-green-500/90 text-white scale-100'
-                        : 'bg-yellow-500/90 text-black scale-95'
+                <div className={`flex items-center gap-3 px-6 py-3 rounded-xl backdrop-blur-md shadow-lg transition-all duration-300 ${isCorrect
+                        ? 'bg-green-600 text-white'
+                        : 'bg-red-600 text-white'
                     }`}>
                     {isCorrect ? (
                         <>
@@ -152,9 +102,24 @@ export default function VoiceFeedbackOverlay({
                     ) : (
                         <>
                             <AlertCircle className="w-6 h-6" />
-                            <span className="font-bold text-lg">Ajusta tu Postura</span>
+                            <div>
+                                <span className="font-bold text-lg block">Corrige tu postura</span>
+                                {corrections.length > 0 && (
+                                    <span className="text-sm opacity-90">
+                                        {corrections[0]?.message || corrections[0]}
+                                    </span>
+                                )}
+                            </div>
                         </>
                     )}
+                </div>
+            </div>
+
+            {/* Contador de repeticiones - esquina superior derecha */}
+            <div className="absolute top-4 right-4 z-20">
+                <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl px-5 py-3 shadow-xl">
+                    <p className="text-blue-200 text-xs text-center mb-1">Repeticiones</p>
+                    <p className="text-4xl font-bold text-white text-center">{repCount}</p>
                 </div>
             </div>
 
