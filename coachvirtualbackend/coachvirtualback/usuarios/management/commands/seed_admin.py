@@ -16,14 +16,17 @@ class Command(BaseCommand):
         # Verificar si ya existe
         if Usuario.objects.filter(email=email).exists():
             user = Usuario.objects.get(email=email)
-            # Asegurar que sea superusuario
-            if not user.is_superuser:
-                user.is_superuser = True
-                user.is_staff = True
-                user.save()
-                self.stdout.write(self.style.SUCCESS(f'✅ Usuario {email} actualizado como superusuario'))
-            else:
-                self.stdout.write(self.style.WARNING(f'⚠️ Usuario administrador ya existe: {email}'))
+            # Actualizar usuario existente
+            user.set_password(password)
+            user.is_superuser = True
+            user.is_staff = True
+            user.nombre = 'Grover'
+            user.apellido = 'Choquevillca'
+            user.save()
+            self.stdout.write(self.style.SUCCESS(f'✅ Usuario administrador actualizado:'))
+            self.stdout.write(f'   Email: {email}')
+            self.stdout.write(f'   Password: {password}')
+            self.stdout.write(f'   Superusuario: Sí')
             return
         
         # Crear usuario administrador

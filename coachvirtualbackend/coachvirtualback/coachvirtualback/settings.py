@@ -190,5 +190,13 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Permitir envío de cookies/headers de autorización
 CORS_ALLOW_CREDENTIALS = True
 
-# (Opcional) Si en el futuro necesitas restringir CSRF en producción (deploy HTTPS):
-# CSRF_TRUSTED_ORIGINS = ["https://tudominio.com", "https://tudominio.railway.app"]
+# CSRF trusted origins para producción (HTTPS)
+CSRF_TRUSTED_ORIGINS = [
+    "https://coach-virtual.netlify.app",
+    "https://coachvirtual-production.up.railway.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# URL del frontend para redirecciones (Stripe, etc.)
+FRONTEND_URL = config("FRONTEND_URL", default="https://coach-virtual.netlify.app")
