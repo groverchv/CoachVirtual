@@ -86,18 +86,12 @@ import EjercicioDetector from "../pages/Detector/EjercicioDetector";
 import RoutineWorkoutPage from "../pages/Routines/RoutineWorkoutPage";
 import UniversalExercisePage from "../pages/Exercises/UniversalExercisePage";
 
-// Flujo categoría / músculo / ejercicios
-import SelectCategory from "../pages/Categoria/SelectCategory";
-import CategoryGate from "./CategoryGate";
+// Flujo categoría / músculo / ejercicios (solo admin)
 import Musculo from "../pages/GestionarMusculo/Musculo";
-import MusculoUsuario from "../pages/GestionarMusculo/MusculoUsuario";
 import Ejercicio from "../pages/GestionarEjercicio/Ejercicio";
 import Detalle_Musculo from "../pages/Detalle_Musculo/Detalle_Musculo";
-import DetalleMusculoUsuario from "../pages/GestionarEjercicio/Detalle_MusculoUsuario";
 import Ejercicio_Asignado from "../pages/GestionarEjercicio_Asignacion/Ejercicio_Asignado";
-import Ejercicio_AsignadoUsuario from "../pages/GestionarEjercicio_Asignacion/Ejercicio_AsignadoUsuario";
 import GestionarTipo from "../pages/GestionarTipo/GestionarTipo";
-import GestionarTipoUsuario from "../pages/GestionarTipo/GestionarTipoUsuario";
 
 // ====== Guards ======
 function RequireAuth() {
@@ -107,44 +101,27 @@ function RequireAuth() {
 }
 
 function GuestOnly() {
-  const { isAuthenticated, isSuper, initializing } = useAuth();
-  const { category } = useCategory();
+  const { isAuthenticated, initializing } = useAuth();
   const location = useLocation();
 
   if (initializing) return <div style={{ padding: 24 }}>Verificando sesión…</div>;
 
   if (isAuthenticated) {
-    if (isSuper) return <Navigate to="/home" replace />;
-    // usuario normal: respetar flujo
-    const fromRoot = location.pathname === "/" || location.pathname === "/login";
-    if (fromRoot) {
-      return (
-        <Navigate
-          to={category ? "/mis-musculos" : "/seleccionar"}
-          replace
-        />
-      );
-    }
-    return <Navigate to="/" replace />;
+    // Todos los usuarios autenticados van a /home
+    return <Navigate to="/home" replace />;
   }
 
   return <Outlet />;
 }
 
 function RootRedirect() {
-  const { isAuthenticated, isSuper, initializing } = useAuth();
-  const { category } = useCategory();
+  const { isAuthenticated, initializing } = useAuth();
 
   if (initializing) return <div style={{ padding: 24 }}>Verificando sesión…</div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  if (isSuper) return <Navigate to="/home" replace />;
-  return (
-    <Navigate
-      to={category ? "/mis-musculos" : "/seleccionar"}
-      replace
-    />
-  );
+  // Todos los usuarios autenticados van a /home
+  return <Navigate to="/home" replace />;
 }
 
 function RequireSuper() {
@@ -177,24 +154,7 @@ export default function AppRoutes() {
       {/* Autenticados */}
       <Route element={<RequireAuth />}>
         <Route element={<AuthenticatedLayout />}>
-          {/* 1) Selección de categoría (sin sidebar) */}
-          <Route path="/seleccionar" element={<SelectCategory />} />
-
-          {/* 2) Flujo guiado que requiere categoría */}
-          <Route element={<CategoryGate />}>
-            {/* 2.a) Elegir músculo */}
-            <Route path="/mis-musculos" element={<MusculoUsuario />} />
-            {/* 2.b) Ver detalles según músculo elegido */}
-            <Route path="/mis-ejercicios" element={<DetalleMusculoUsuario />} />
-            {/* 2.c) Ver ejercicios asignados según detalles elegidos */}
-            <Route
-              path="/mis-ejercicios-asignados"
-              element={<Ejercicio_AsignadoUsuario />}
-            />
-
-          </Route>
-
-          {/* Otras secciones (sidebar visible) */}
+          {/* Rutas principales */}
           <Route path="/home" element={<Home />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/planes" element={<Planes />} />
@@ -273,7 +233,6 @@ export default function AppRoutes() {
           <Route path="/rutina/:rutinaId/workout" element={<RoutineWorkoutPage />} />
           <Route path="/workout/exercise/:id" element={<UniversalExercisePage />} />
           <Route path="/mis-alertas" element={<AlertaUsuario />} />
-          <Route path="/seleccionar" element={<GestionarTipoUsuario />} />
 
           {/* SOLO superusuario */}
           <Route element={<RequireSuper />}>

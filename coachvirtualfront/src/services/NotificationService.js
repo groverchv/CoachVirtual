@@ -102,6 +102,8 @@ const NotificationService = {
     async markAllAsRead() {
         try {
             const response = await api.post('/alertas/mark-all-read/');
+            // Disparar evento para que AlertNotifier actualice su estado
+            window.dispatchEvent(new CustomEvent('notifications-read'));
             return response.data;
         } catch (error) {
             console.error('Error marking all alerts as read:', error);

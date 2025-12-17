@@ -345,23 +345,29 @@ export default function RoutineWorkoutPage() {
 
             // Mensajes motivacionales con delay mayor para no interrumpir el conteo
             setTimeout(() => {
+                const remaining = targetReps - newCount;
+
                 // Mitad de las reps
                 if (newCount === Math.floor(targetReps / 2)) {
                     speak('¡Vas a la mitad! ¡Sigue así!', 'encouragement');
                 }
-                // Últimas 3 reps
-                else if (newCount === targetReps - 2) {
-                    speak('¡Tres más! ¡Tú puedes!', 'encouragement');
+                // Faltan 3 reps
+                else if (remaining === 3) {
+                    speak('¡Tres más!', 'encouragement');
+                }
+                // Faltan 2 reps
+                else if (remaining === 2) {
+                    speak('¡Dos más!', 'encouragement');
                 }
                 // Última rep
-                else if (newCount === targetReps - 1) {
-                    speak('¡Última repetición! ¡Dale con todo!', 'encouragement');
+                else if (remaining === 1) {
+                    speak('¡Última!', 'encouragement');
                 }
-                // Rep completada con buena forma (cada 4 reps)
-                else if (newCount % 4 === 0 && newCount < targetReps) {
+                // Rep completada con buena forma (cada 4 reps, pero no al final)
+                else if (newCount % 4 === 0 && remaining > 3) {
                     const messages = [
                         '¡Excelente forma!',
-                        '¡Muy bien! Continúa',
+                        '¡Muy bien!',
                         '¡Eso es!',
                         '¡Perfecto!',
                     ];
@@ -882,6 +888,10 @@ export default function RoutineWorkoutPage() {
                                     exerciseName={currentExercise?.nombre}
                                     voiceEnabled={voiceEnabled}
                                     onVoiceToggle={setVoiceEnabled}
+                                    isIsometric={currentExercise?.isIsometric || false}
+                                    holdTime={holdTime}
+                                    targetHoldTime={currentExercise?.targetTime || 30}
+                                    targetReps={currentExercise?.targetReps || 12}
                                 />
 
                                 {/* Mini demo en esquina */}

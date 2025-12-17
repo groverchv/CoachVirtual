@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { AlertaService } from "../../services/AlertaService";
+import NotificationService from "../../services/NotificationService";
 import api from "../../api/api";
 import { useAuth } from "../../auth/useAuth";
 import { Bell, RefreshCw, Clock, AlertCircle, Inbox } from 'lucide-react';
@@ -36,7 +37,9 @@ export default function AlertaUsuario() {
   const uid = user?.id;
 
   const setSorted = (arr) => {
-    const sorted = [...(arr || [])].sort((a, b) => {
+    // Filtrar solo alertas no leídas
+    const unread = (arr || []).filter(a => !a.leida);
+    const sorted = [...unread].sort((a, b) => {
       const da = new Date(a.created_at).getTime() || 0;
       const db = new Date(b.created_at).getTime() || 0;
       if (db !== da) return db - da;
@@ -90,6 +93,8 @@ export default function AlertaUsuario() {
 
   useEffect(() => {
     load();
+    // Marcar todas como leídas al entrar a la página
+    NotificationService.markAllAsRead();
   }, [uid]);
 
   if (!uid) {
@@ -108,8 +113,8 @@ export default function AlertaUsuario() {
             <Bell className="w-5 h-5 text-slate-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-slate-100">Mis alertas</h1>
-            <p className="text-slate-500 text-sm">Viendo tus notificaciones.</p>
+            <h1 className="text-xl font-semibold text-slate-100">Mis Notificaciones</h1>
+            <p className="text-slate-500 text-sm">Notificaciones sin leer.</p>
           </div>
         </div>
         <button

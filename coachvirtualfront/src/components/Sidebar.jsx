@@ -30,27 +30,37 @@ const cx = (...c) => c.filter(Boolean).join(" ");
 
 // Badge de plan
 function PlanBadge({ planActual, PLANES }) {
-  const planKey = planActual?.plan_actual || 'gratis';
-  const planInfo = PLANES?.[planKey] || { nombre: 'Gratis' };
+  // Usar plan_nombre del backend o intentar con plan/plan_actual
+  const planNombre = planActual?.plan_nombre || planActual?.nombre || null;
+  const planKey = (planActual?.plan || planActual?.plan_actual || 'gratis').toLowerCase();
+  const planInfo = PLANES?.[planKey] || { nombre: planNombre || 'Gratis' };
 
-  const badgeColors = {
-    gratis: 'bg-gray-600 text-gray-100',
-    basico: 'bg-blue-600 text-blue-100',
-    premium: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white',
+  // Determinar el estilo basándose en el tipo de plan
+  const getBadgeStyle = () => {
+    if (planKey === 'premium' || planKey === 'estrella') {
+      return 'bg-gradient-to-r from-purple-600 to-pink-600 text-white';
+    }
+    if (planKey === 'basico') {
+      return 'bg-blue-600 text-blue-100';
+    }
+    return 'bg-gray-600 text-gray-100';
   };
 
-  const icons = {
-    gratis: '🆓',
-    basico: '⭐',
-    premium: '👑',
+  const getIcon = () => {
+    if (planKey === 'premium' || planKey === 'estrella') return '⭐';
+    if (planKey === 'basico') return '✅';
+    return '🆓';
   };
+
+  // Mostrar el nombre del plan desde el backend si está disponible
+  const displayName = planNombre || planInfo.nombre || 'Gratis';
 
   return (
-    <div className={`mx-3 mb-3 px-3 py-2 rounded-lg ${badgeColors[planKey]} flex items-center gap-2`}>
-      <span>{icons[planKey]}</span>
+    <div className={`mx-3 mb-3 px-3 py-2 rounded-lg ${getBadgeStyle()} flex items-center gap-2`}>
+      <span>{getIcon()}</span>
       <div className="flex-1 min-w-0">
         <p className="text-xs opacity-75">Tu plan</p>
-        <p className="font-semibold text-sm truncate">{planInfo.nombre}</p>
+        <p className="font-semibold text-sm truncate">{displayName}</p>
       </div>
     </div>
   );
@@ -73,7 +83,7 @@ export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
       { to: "/home", label: "Inicio", icon: Home },
       { to: "/perfil", label: "Perfil", icon: UserCircle2 },
       { to: "/planes", label: "Planes Premium", icon: Crown },
-      { to: "/mis-alertas", label: "Mis Alertas", icon: Bell },
+      { to: "/mis-alertas", label: "Mis Notificaciones", icon: Bell },
     ],
     []
   );
@@ -84,7 +94,7 @@ export default function Sidebar({ open, onClose, closeOnNavigate = false }) {
       isSuper
         ? [
           { to: "/usuarios", label: "Gestionar Usuario", icon: Users },
-          { to: "/alertas", label: "Gestionar Alerta", icon: Bell },
+          { to: "/alertas", label: "Gestionar Notificaciones", icon: Bell },
         ]
         : [],
     [isSuper]

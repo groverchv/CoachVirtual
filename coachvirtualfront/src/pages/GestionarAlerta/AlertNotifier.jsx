@@ -210,10 +210,18 @@ export default function AlertNotifier({
     };
     window.addEventListener('focus', handleFocus);
 
+    // Escuchar cuando se marcan notificaciones como leídas
+    const handleNotificationsRead = () => {
+      setStats({ unread: 0 }); // Limpiar badge inmediatamente
+      loadStats(); // Recargar stats desde el servidor
+    };
+    window.addEventListener('notifications-read', handleNotificationsRead);
+
     return () => {
       cancelled = true;
       if (timerRef.current) clearInterval(timerRef.current);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('notifications-read', handleNotificationsRead);
       if (autoUnlockListenerRef.current) {
         window.removeEventListener("pointerdown", autoUnlockListenerRef.current, true);
         autoUnlockListenerRef.current = null;

@@ -106,7 +106,7 @@ Se prioriza el uso de una URL completa (DATABASE_URL) si está definida en el en
 """
 
 # NOTA: Idealmente, no dejes la URL real hardcodeada aquí si subes esto a GitHub público.
-database_url = config("DATABASE_URL", default="postgresql://postgres:rGuCuRzXLXRjtqTuipAFEPBMVbEhWrej@yamanote.proxy.rlwy.net:41329/railway")
+database_url = config("DATABASE_URL", default="postgresql://postgres:ALfVoDDLSbLVzLnBBpICqZwAddWunLYr@yamanote.proxy.rlwy.net:18478/railway")
 
 if database_url:
     parsed = urlparse(database_url)

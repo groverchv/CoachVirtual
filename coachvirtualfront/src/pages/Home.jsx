@@ -383,7 +383,12 @@ const Home = () => {
   const handleAddExerciseToEdit = (ejercicio) => {
     if (!editingRutina) return;
     const datos_rutina = [...(editingRutina.datos_rutina || [])];
-    const exists = datos_rutina.some(e => e.ejercicio_id === ejercicio.id || e.id === ejercicio.id);
+    // Verificar duplicados por ID o por nombre
+    const exists = datos_rutina.some(e =>
+      e.ejercicio_id === ejercicio.id ||
+      e.id === ejercicio.id ||
+      e.nombre?.toLowerCase() === ejercicio.nombre?.toLowerCase()
+    );
     if (!exists) {
       datos_rutina.push({
         id: Date.now(),
@@ -395,6 +400,9 @@ const Home = () => {
         descanso: 60
       });
       setEditingRutina({ ...editingRutina, datos_rutina });
+    } else {
+      // Opcional: mostrar alerta
+      alert('Este ejercicio ya está en la rutina');
     }
   };
 
@@ -964,7 +972,12 @@ const Home = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-auto">
                   {availableExercises
                     .filter(ej => {
-                      const inRutina = (editingRutina.datos_rutina || []).some(e => e.ejercicio_id === ej.id || e.id === ej.id);
+                      // Verificar si ya está en la rutina por ID o por nombre
+                      const inRutina = (editingRutina.datos_rutina || []).some(e =>
+                        e.ejercicio_id === ej.id ||
+                        e.id === ej.id ||
+                        e.nombre?.toLowerCase() === ej.nombre?.toLowerCase()
+                      );
                       return !inRutina;
                     })
                     .slice(0, 10)
