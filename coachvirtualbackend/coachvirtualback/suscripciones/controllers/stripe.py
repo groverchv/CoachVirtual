@@ -116,8 +116,8 @@ def crear_checkout_session(request):
             activo=False
         )
         
-        # URLs de retorno - redirige al home principal
-        success_url = f'{FRONTEND_URL}/?payment_success=true&session_id={{CHECKOUT_SESSION_ID}}'
+        # URLs de retorno - redirige a la página de planes para verificación
+        success_url = f'{FRONTEND_URL}/planes?success=true&session_id={{CHECKOUT_SESSION_ID}}'
         cancel_url = f'{FRONTEND_URL}/planes?canceled=true'
         
         # Crear sesión de checkout con precio dinámico
