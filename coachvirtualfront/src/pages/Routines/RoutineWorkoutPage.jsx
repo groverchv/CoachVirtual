@@ -70,7 +70,7 @@ export default function RoutineWorkoutPage() {
     const [showDemo, setShowDemo] = useState(false);
     const [showVoiceCommandsModal, setShowVoiceCommandsModal] = useState(false);
     const [showUpgradeAd, setShowUpgradeAd] = useState(false); // Anuncio para plan gratuito
-    const [adCountdown, setAdCountdown] = useState(5);
+    const [adCountdown, setAdCountdown] = useState(30);
 
 
     // Refs
@@ -407,14 +407,14 @@ export default function RoutineWorkoutPage() {
         const planConfig = getPlanConfig();
         if (planConfig.con_anuncios) {
             setShowUpgradeAd(true);
-            setAdCountdown(5);
-            // Cerrar el anuncio después de 5 segundos
+            setAdCountdown(30);
+            // Cerrar el anuncio después de 30 segundos
             const countdownInterval = setInterval(() => {
                 setAdCountdown(prev => {
                     if (prev <= 1) {
                         clearInterval(countdownInterval);
                         setShowUpgradeAd(false);
-                        return 5;
+                        return 30;
                     }
                     return prev - 1;
                 });
