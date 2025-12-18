@@ -28,6 +28,7 @@ import {
     isVoiceRecognitionSupported
 } from '../../services/IA/voiceCommandService';
 import { calculateBodyAngles } from '../../utils/poseUtils';
+import { useSubscription } from '../../context/SubscriptionContext';
 
 // Estados del workout
 const WORKOUT_STATES = {
@@ -42,6 +43,9 @@ export default function RoutineWorkoutPage() {
     const location = useLocation();
     const navigate = useNavigate();
 
+    // Suscripción - verificar funcionalidades del plan
+    const { puedeUsar, getPlanConfig } = useSubscription();
+
     // Datos de la rutina (pasados por state o cargados)
     const [routineData, setRoutineData] = useState(null);
     const [exercises, setExercises] = useState([]);
@@ -50,7 +54,7 @@ export default function RoutineWorkoutPage() {
     // Estado del workout
     const [workoutState, setWorkoutState] = useState(WORKOUT_STATES.INTRO);
     const [isPaused, setIsPaused] = useState(false);
-    const [voiceEnabled, setVoiceEnabled] = useState(true);
+    const [voiceEnabled, setVoiceEnabled] = useState(() => puedeUsar('feedback_voz'));
     const [micEnabled, setMicEnabled] = useState(false);
 
     // Contadores
@@ -64,7 +68,9 @@ export default function RoutineWorkoutPage() {
     const [isCorrect, setIsCorrect] = useState(false);
     const [corrections, setCorrections] = useState([]);
     const [showDemo, setShowDemo] = useState(false);
-    const [showVoiceCommandsModal, setShowVoiceCommandsModal] = useState(false); // Modal de comandos de voz
+    const [showVoiceCommandsModal, setShowVoiceCommandsModal] = useState(false);
+    const [showUpgradeAd, setShowUpgradeAd] = useState(false); // Anuncio para plan gratuito
+    const [adCountdown, setAdCountdown] = useState(5);
 
 
     // Refs
@@ -397,6 +403,24 @@ export default function RoutineWorkoutPage() {
 
     // Iniciar descanso - con resumen de correcciones
     const startRest = useCallback(() => {
+        // Mostrar anuncio para usuarios con plan gratuito
+        const planConfig = getPlanConfig();
+        if (planConfig.con_anuncios) {
+            setShowUpgradeAd(true);
+            setAdCountdown(5);
+            // Cerrar el anuncio después de 5 segundos
+            const countdownInterval = setInterval(() => {
+                setAdCountdown(prev => {
+                    if (prev <= 1) {
+                        clearInterval(countdownInterval);
+                        setShowUpgradeAd(false);
+                        return 5;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+
         setWorkoutState(WORKOUT_STATES.REST);
         const restTime = currentExercise?.descanso || 60;
         setRestTimer(restTime);
@@ -418,7 +442,7 @@ export default function RoutineWorkoutPage() {
             // Limpiar correcciones para siguiente serie
             sessionCorrectionsRef.current = [];
         }
-    }, [currentExercise, voiceEnabled]);
+    }, [currentExercise, voiceEnabled, getPlanConfig]);
 
     // Completar descanso
     const handleRestComplete = useCallback(() => {
@@ -1039,6 +1063,35 @@ export default function RoutineWorkoutPage() {
                         >
                             Continuar
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Upgrade Ad Modal - Solo para plan gratuito */}
+            {showUpgradeAd && (
+                <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+                    <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl">
+                        <div className="text-6xl mb-4">⭐</div>
+                        <h2 className="text-2xl font-bold text-white mb-3">
+                            ¡Mejora tu experiencia!
+                        </h2>
+                        <p className="text-purple-100 mb-4">
+                            Suscríbete a un plan premium para eliminar este anuncio y desbloquear todas las funciones.
+                        </p>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowUpgradeAd(false);
+                                    navigate('/planes');
+                                }}
+                                className="bg-white text-purple-600 px-6 py-3 rounded-full font-bold hover:bg-purple-50 transition-colors"
+                            >
+                                Ver Planes Premium
+                            </button>
+                            <p className="text-purple-200 text-sm">
+                                Cerrando en {adCountdown} segundos...
+                            </p>
+                        </div>
                     </div>
                 </div>
             )}

@@ -24,12 +24,16 @@ import {
     isVoiceRecognitionSupported
 } from '../../services/IA/voiceCommandService';
 import { calculateBodyAngles } from '../../utils/poseUtils';
+import { useSubscription } from '../../context/SubscriptionContext';
 
 export default function UniversalExercisePage() {
     const { id } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
     const exerciseId = parseInt(id);
+
+    // Suscripción - verificar funcionalidades del plan
+    const { puedeUsar } = useSubscription();
 
     // Datos del ejercicio
     const [exerciseData, setExerciseData] = useState(null);
@@ -38,7 +42,7 @@ export default function UniversalExercisePage() {
     // Estados de control
     const [isActive, setIsActive] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
-    const [voiceEnabled, setVoiceEnabled] = useState(true);
+    const [voiceEnabled, setVoiceEnabled] = useState(() => puedeUsar('feedback_voz'));
     const [micEnabled, setMicEnabled] = useState(false);
     const [showDemo, setShowDemo] = useState(false);
     const [showInstructions, setShowInstructions] = useState(true);

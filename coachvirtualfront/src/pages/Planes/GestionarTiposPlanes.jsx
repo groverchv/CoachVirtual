@@ -237,7 +237,7 @@ export default function GestionarTiposPlanes() {
                                     rows={2}
                                 />
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                    <Toggle label="Feedback voz" value={form.feedback_voz} onChange={(v) => setForm({ ...form, feedback_voz: v })} />
+                                    <Toggle label="Voz de retroalimentación" value={form.feedback_voz} onChange={(v) => setForm({ ...form, feedback_voz: v })} />
                                     <Toggle label="Análisis ángulos" value={form.analisis_angulos} onChange={(v) => setForm({ ...form, analisis_angulos: v })} />
                                     <Toggle label="Con anuncios" value={form.con_anuncios} onChange={(v) => setForm({ ...form, con_anuncios: v })} />
                                     <Toggle label="Rutinas personalizadas" value={form.rutinas_personalizadas} onChange={(v) => setForm({ ...form, rutinas_personalizadas: v })} />
