@@ -95,9 +95,8 @@ export default function Planes() {
           planIcon: planInfo?.icono || '🎉',
           features: [
             planInfo?.minutos_por_dia === -1 ? 'Tiempo ilimitado de ejercicio' : `${planInfo?.minutos_por_dia} minutos por día`,
-            planInfo?.feedback_voz ? 'Feedback con voz' : null,
+            planInfo?.feedback_voz ? 'Comentarios por voz' : null,
             planInfo?.analisis_angulos ? 'Análisis de ángulos' : null,
-            planInfo?.historial_dias === -1 ? 'Historial ilimitado' : planInfo?.historial_dias > 0 ? `${planInfo?.historial_dias} días de historial` : null,
             !planInfo?.con_anuncios ? 'Sin anuncios' : null,
           ].filter(Boolean),
         }));
@@ -265,21 +264,16 @@ export default function Planes() {
                   {/* Features */}
                   <ul className="space-y-3 mb-8">
                     <FeatureItem
-                      active={plan.minutos_por_dia === -1}
+                      active={true}
                       text={plan.minutos_por_dia === -1 ? 'Tiempo ilimitado' : `${plan.minutos_por_dia} min/día`}
                     />
                     <FeatureItem
                       active={plan.feedback_voz}
-                      text="Feedback con voz"
+                      text="Comentarios por voz"
                     />
                     <FeatureItem
                       active={plan.analisis_angulos}
                       text="Análisis de ángulos"
-                    />
-                    <FeatureItem
-                      active={plan.historial_dias === -1 || plan.historial_dias > 0}
-                      partial={plan.historial_dias > 0 && plan.historial_dias !== -1}
-                      text={plan.historial_dias === -1 ? 'Historial ilimitado' : plan.historial_dias > 0 ? `${plan.historial_dias} días de historial` : 'Sin historial'}
                     />
                     <FeatureItem
                       active={!plan.con_anuncios}

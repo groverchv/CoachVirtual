@@ -240,8 +240,6 @@ export default function GestionarTiposPlanes() {
                                     <Toggle label="Voz de retroalimentación" value={form.feedback_voz} onChange={(v) => setForm({ ...form, feedback_voz: v })} />
                                     <Toggle label="Análisis ángulos" value={form.analisis_angulos} onChange={(v) => setForm({ ...form, analisis_angulos: v })} />
                                     <Toggle label="Con anuncios" value={form.con_anuncios} onChange={(v) => setForm({ ...form, con_anuncios: v })} />
-                                    <Toggle label="Rutinas personalizadas" value={form.rutinas_personalizadas} onChange={(v) => setForm({ ...form, rutinas_personalizadas: v })} />
-                                    <Toggle label="Soporte prioritario" value={form.soporte_prioritario} onChange={(v) => setForm({ ...form, soporte_prioritario: v })} />
                                     <Toggle label="Popular" value={form.popular} onChange={(v) => setForm({ ...form, popular: v })} />
                                     <Toggle label="Activo" value={form.activo} onChange={(v) => setForm({ ...form, activo: v })} />
                                 </div>
