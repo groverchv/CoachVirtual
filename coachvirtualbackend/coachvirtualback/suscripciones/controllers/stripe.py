@@ -127,7 +127,7 @@ def crear_checkout_session(request):
             customer_email=usuario.email,
             line_items=[{
                 'price_data': {
-                    'currency': 'usd',
+                    'currency': 'bob',
                     'product_data': {
                         'name': f'Plan {tipo_plan.nombre} - Coach Virtual',
                         'description': tipo_plan.descripcion or f'Suscripción de {tipo_plan.duracion_dias} días al plan {tipo_plan.nombre}',
